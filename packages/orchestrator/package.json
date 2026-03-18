@@ -8,7 +8,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@agent-orchestrator/core": "*"
+    "@agent-orchestrator/core": "*",
+    "@agent-orchestrator/adapter": "*"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

@@ -5,3 +5,6 @@ export { LockManager } from './lock/manager';
 export type { FileLock, LockGranularity, LockType, LockStatus, CodeRegion, LockState } from './types';
 export type { LockRequest, LockResult } from './lock/types';
 export { ConflictDetector } from './conflict/detector';
+export { RegionConflictDetector } from './conflict/region-detector';
+export { TaskStateMachine, canTransition } from './task/state-machine';
+export type { TransitionRecord } from './task/state-machine';

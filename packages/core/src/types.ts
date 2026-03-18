@@ -186,3 +186,16 @@ export interface ConflictReport {
   semanticConflicts: never[];
   recommendations: string[];
 }
+
+export interface RegionConflict {
+  file: string;
+  region1: CodeRegion;
+  region2: CodeRegion;
+  agent1: string;
+  agent2: string;
+}
+
+export interface RegionConflictReport {
+  hasConflicts: boolean;
+  conflicts: RegionConflict[];
+}
