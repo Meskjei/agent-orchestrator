@@ -1,0 +1,22 @@
+{
+  "name": "@agent-orchestrator/cli",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "agent-orch": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@agent-orchestrator/core": "*",
+    "@agent-orchestrator/orchestrator": "*",
+    "commander": "^11.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.0.0",
+    "vitest": "^2.0.0"
+  }
+}

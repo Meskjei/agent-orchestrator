@@ -95,7 +95,7 @@ export class TaskDecompositionSkill {
   private findAgentBySkill(agents: AgentRole[], skillTags: string[]): string | undefined {
     for (const tag of skillTags) {
       const agent = agents.find(a => 
-        a.skills.some(s => 
+        a.skills.some((s: { tags: string[]; name: string }) => 
           s.tags.includes(tag) || s.name.toLowerCase().includes(tag)
         )
       );
