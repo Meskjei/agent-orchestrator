@@ -152,7 +152,7 @@ async function runCli(
 | L3-04 | `/api/tasks/:id` | PUT | 更新任务状态 | 状态正确更新 |
 | L3-05 | `/api/agents` | GET | 获取代理列表 | 返回所有已注册代理 |
 | L3-06 | `/api/status` | GET | 获取项目状态 | 返回项目进度和状态 |
-| L3-07 | `/api/logs` | GET (SSE) | 日志流连接 | WebSocket 连接成功 |
+| L3-07 | `/api/logs` | GET (SSE) | 日志流连接 | SSE 连接成功 |
 | L3-08 | `/api/logs` | GET (SSE) | 实时日志推送 | 日志事件正确推送 |
 | L3-09 | 不存在路径 | GET | 404 处理 | 返回 404 状态码 |
 | L3-10 | 无效请求体 | POST | 400 处理 | 返回 400 和错误信息 |
@@ -438,7 +438,7 @@ exit 0
 |------|---------|---------|---------|---------|
 | PR 检查 | Layer 1 + Layer 2 | 每次 PR | 5 分钟 | Ubuntu, macOS |
 | 合并检查 | Layer 1-3 | 合并到 main | 10 分钟 | Ubuntu, macOS |
-| 夜间测试 | 全部 Layer 1-4 | 每日凌晨 2:00 | 30 分钟 | Ubuntu, macOS, Windows |
+| 夜间测试 | 全部 Layer 1-4 | 每日凌晨 2:00 | 30 分钟 | Ubuntu, macOS |
 
 ### GitHub Actions 配置
 
