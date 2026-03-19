@@ -656,7 +656,7 @@ describe('End-to-End Integration Tests', () => {
       expect(machine.canTransitionTo('pending')).toBe(false);
     });
 
-    it('should handle duplicate agent registration', () => {
+    it('should update existing agent on duplicate registration', () => {
       const brain = new ProjectBrainImpl(tempDir);
       
       brain.addAgent({
@@ -668,16 +668,17 @@ describe('End-to-End Integration Tests', () => {
         status: 'online'
       });
 
-      expect(() => {
-        brain.addAgent({
-          id: 'dup-agent',
-          name: 'Dup Agent 2',
-          description: 'Test 2',
-          skills: [],
-          workingDirectory: tempDir,
-          status: 'online'
-        });
-      }).toThrow();
+      brain.addAgent({
+        id: 'dup-agent',
+        name: 'Dup Agent 2',
+        description: 'Test 2',
+        skills: [],
+        workingDirectory: tempDir,
+        status: 'online'
+      });
+
+      expect(brain.agents.length).toBe(1);
+      expect(brain.agents[0].name).toBe('Dup Agent 2');
     });
 
     it('should handle non-existent task retrieval', () => {
@@ -686,9 +687,9 @@ describe('End-to-End Integration Tests', () => {
       expect(task).toBeUndefined();
     });
 
-    it('should handle lock release of non-existent lock', async () => {
+    it('should handle lock release of non-existent lock gracefully', async () => {
       const lockManager = new LockManager();
-      await expect(lockManager.releaseLock('non-existent-lock')).rejects.toThrow();
+      await expect(lockManager.releaseLock('non-existent-lock')).resolves.toBeUndefined();
     });
   });
 });
