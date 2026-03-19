@@ -1,0 +1,41 @@
+name: qoder
+description: Native code expert specializing in Objective-C analysis and refactoring
+type: cli
+
+command: /usr/local/bin/qoder
+cwd: /path/to/native-repo
+
+skills:
+  - id: analyze-dependencies
+    name: Analyze Dependencies
+    description: Analyze file dependencies and generate dependency graph
+    tags:
+      - analysis
+      - objective-c
+      - dependencies
+
+  - id: refactor-code
+    name: Refactor Code
+    description: Refactor Objective-C code for better maintainability
+    tags:
+      - refactoring
+      - objective-c
+
+  - id: generate-tests
+    name: Generate Tests
+    description: Generate unit tests for Objective-C code
+    tags:
+      - testing
+      - objective-c
+
+  - id: code-review
+    name: Code Review
+    description: Review code changes and provide feedback
+    tags:
+      - review
+      - objective-c
+
+env:
+  WORKSPACE: /path/to/native-repo
+
+timeout: 300000

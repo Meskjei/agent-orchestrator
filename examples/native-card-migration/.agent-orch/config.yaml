@@ -1,0 +1,20 @@
+name: Native Card Migration
+description: Migrate Native Card components from Objective-C to SwiftUI
+goal: Complete migration of all card components while preserving functionality
+version: "1.0.0"
+
+project:
+  nativeRepo: /path/to/native-repo
+  newRepo: /path/to/new-repo
+
+constraints:
+  - No breaking changes to public APIs
+  - Maintain existing test coverage
+  - Follow SwiftUI best practices
+  - Preserve performance characteristics
+
+successCriteria:
+  - All card components migrated to SwiftUI
+  - All existing tests pass
+  - No regression in functionality
+  - Code review approval from team lead
