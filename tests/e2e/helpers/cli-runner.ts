@@ -31,12 +31,16 @@ export async function runCli(
       stderr += data.toString();
     });
 
+    let settled = false;
+
     const timer = setTimeout(() => {
+      settled = true;
       child.kill();
       reject(new Error(`CLI timeout after ${timeout}ms`));
     }, timeout);
 
     child.on('close', (code) => {
+      if (settled) return;
       clearTimeout(timer);
       resolve({
         exitCode: code || 0,
@@ -46,6 +50,7 @@ export async function runCli(
     });
 
     child.on('error', (err) => {
+      if (settled) return;
       clearTimeout(timer);
       reject(err);
     });
