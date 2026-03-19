@@ -1,7 +1,7 @@
 import { Server } from 'http';
 import express from 'express';
 import { createServer } from '@agent-orchestrator/web/server';
-import { ProjectBrainImpl } from '@agent-orchestrator/core/brain/brain';
+import { ProjectBrainImpl } from '@agent-orchestrator/core';
 import { getPort } from 'portfinder';
 
 export interface WebServerContext {
@@ -16,7 +16,10 @@ export async function startWebServer(
   preferredPort?: number
 ): Promise<WebServerContext> {
   const brain = new ProjectBrainImpl(projectDir);
-  await brain.load();
+  const loaded = await brain.load();
+  if (!loaded) {
+    throw new Error(`Failed to load brain from ${projectDir}`);
+  }
 
   const app = createServer({ brain });
   
@@ -27,8 +30,9 @@ export async function startWebServer(
     });
   });
 
-  const server = await new Promise<Server>((resolve) => {
+  const server = await new Promise<Server>((resolve, reject) => {
     const srv = app.listen(port, () => resolve(srv));
+    srv.on('error', reject);
   });
 
   return {
@@ -40,10 +44,16 @@ export async function startWebServer(
 }
 
 export async function stopWebServer(context: WebServerContext): Promise<void> {
+  if (!context || !context.server) {
+    return;
+  }
   return new Promise((resolve, reject) => {
     context.server.close((err) => {
-      if (err) reject(err);
-      else resolve();
+      if (err && (err as NodeJS.ErrnoException).code !== 'ERR_SERVER_NOT_RUNNING') {
+        reject(err);
+      } else {
+        resolve();
+      }
     });
   });
 }
