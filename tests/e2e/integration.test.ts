@@ -576,4 +576,119 @@ describe('End-to-End Integration Tests', () => {
       logger.info('Workflow completed successfully');
     });
   });
+
+  describe('State Persistence (L1-05)', () => {
+    it('should persist all brain data correctly after save/load cycle', async () => {
+      const brain = new ProjectBrainImpl(tempDir, {
+        name: 'Persistence Test',
+        version: '2.0.0',
+        goal: {
+          description: 'Test persistence',
+          successCriteria: ['Criteria 1', 'Criteria 2'],
+          constraints: ['Constraint 1']
+        }
+      });
+
+      brain.addAgent({
+        id: 'persist-agent',
+        name: 'Persist Agent',
+        description: 'Test agent',
+        skills: [{ id: 'test', name: 'Test', tags: ['test'] }],
+        workingDirectory: tempDir,
+        status: 'online'
+      });
+
+      brain.addTask({
+        id: 'PERSIST-001',
+        title: 'Persist Task',
+        description: 'Task to test persistence',
+        type: 'task',
+        status: 'pending',
+        expectedOutput: {
+          type: 'code',
+          description: 'Output',
+          acceptanceCriteria: ['AC1', 'AC2']
+        },
+        estimatedFiles: ['persist.ts'],
+        children: [],
+        dependencies: [],
+        statusHistory: []
+      });
+
+      brain.context.background = 'Test background info';
+      brain.decisions.push({
+        id: 'decision-1',
+        decision: 'Use TypeScript',
+        decider: 'human',
+        context: 'Initial setup',
+        alternatives: ['JavaScript'],
+        impact: ['Type safety'],
+        timestamp: new Date(),
+        relatedTasks: [],
+        relatedFiles: []
+      });
+
+      await brain.save();
+
+      const brain2 = new ProjectBrainImpl(tempDir);
+      const loaded = await brain2.load();
+
+      expect(loaded).toBe(true);
+      expect(brain2.name).toBe('Persistence Test');
+      expect(brain2.version).toBe('2.0.0');
+      expect(brain2.goal.description).toBe('Test persistence');
+      expect(brain2.goal.successCriteria).toEqual(['Criteria 1', 'Criteria 2']);
+      expect(brain2.goal.constraints).toEqual(['Constraint 1']);
+      expect(brain2.agents.length).toBe(1);
+      expect(brain2.agents[0].id).toBe('persist-agent');
+      expect(brain2.tasks.nodes.size).toBe(1);
+      const task = brain2.getTask('PERSIST-001');
+      expect(task?.title).toBe('Persist Task');
+      expect(brain2.context.background).toBe('Test background info');
+      expect(brain2.decisions.length).toBe(1);
+      expect(brain2.decisions[0].decision).toBe('Use TypeScript');
+    });
+  });
+
+  describe('Error Handling (L1-06)', () => {
+    it('should handle invalid task status transitions', () => {
+      const machine = new TaskStateMachine('completed');
+      expect(machine.canTransitionTo('pending')).toBe(false);
+    });
+
+    it('should handle duplicate agent registration', () => {
+      const brain = new ProjectBrainImpl(tempDir);
+      
+      brain.addAgent({
+        id: 'dup-agent',
+        name: 'Dup Agent',
+        description: 'Test',
+        skills: [],
+        workingDirectory: tempDir,
+        status: 'online'
+      });
+
+      expect(() => {
+        brain.addAgent({
+          id: 'dup-agent',
+          name: 'Dup Agent 2',
+          description: 'Test 2',
+          skills: [],
+          workingDirectory: tempDir,
+          status: 'online'
+        });
+      }).toThrow();
+    });
+
+    it('should handle non-existent task retrieval', () => {
+      const brain = new ProjectBrainImpl(tempDir);
+      const task = brain.getTask('non-existent');
+      expect(task).toBeUndefined();
+    });
+
+    it('should handle lock release of non-existent lock', async () => {
+      const lockManager = new LockManager();
+      await expect(lockManager.releaseLock('non-existent-lock')).rejects.toThrow();
+    });
+  });
 });
