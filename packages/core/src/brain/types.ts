@@ -1,1 +1,1 @@
-export { ProjectBrain, TaskNode, TaskStatus, AgentRole, AgentStatus } from '../types';
+export { ProjectBrain, TaskNode, TaskStatus, AgentRole, AgentStatus } from '../types.js';

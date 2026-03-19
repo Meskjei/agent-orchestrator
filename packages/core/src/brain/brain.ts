@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ProjectBrain, TaskNode, AgentRole, LockState, SharedContext, Decision } from '../types';
-import { BrainPersistence } from './persistence';
+import { ProjectBrain, TaskNode, AgentRole, LockState, SharedContext, Decision } from '../types.js';
+import { BrainPersistence } from './persistence.js';
 
 export class ProjectBrainImpl implements ProjectBrain {
   id: string;

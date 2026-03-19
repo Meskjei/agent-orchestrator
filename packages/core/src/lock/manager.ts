@@ -1,4 +1,4 @@
-import { FileLock, LockGranularity, LockType, CodeRegion } from '../types';
+import { FileLock, LockGranularity, LockType, CodeRegion } from '../types.js';
 
 export interface LockRequest {
   agentId: string;

@@ -1,4 +1,4 @@
-import { FileLock, LockGranularity, LockType, LockStatus, CodeRegion } from '../types';
+import { FileLock, LockGranularity, LockType, LockStatus, CodeRegion } from '../types.js';
 
 export { FileLock, LockGranularity, LockType, LockStatus, CodeRegion };
 

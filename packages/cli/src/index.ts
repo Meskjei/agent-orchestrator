@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { initCommand } from './commands/init';
-import { addAgentCommand, listAgentsCommand } from './commands/agent';
-import { createTaskCommand } from './commands/task';
-import { startCommand } from './commands/start';
+import { initCommand } from './commands/init.js';
+import { addAgentCommand, listAgentsCommand } from './commands/agent.js';
+import { createTaskCommand } from './commands/task.js';
+import { startCommand } from './commands/start.js';
 import { ProjectBrainImpl } from '@agent-orchestrator/core';
+import React from 'react';
+import { render } from 'ink';
+import { TuiApp } from './tui/index.js';
 
 const program = new Command();
 
@@ -68,6 +71,29 @@ program
   .action(async () => {
     const baseDir = process.cwd();
     await startCommand(baseDir);
+  });
+
+program
+  .command('tui')
+  .description('Launch terminal user interface')
+  .action(async () => {
+    const baseDir = process.cwd();
+    const brain = new ProjectBrainImpl(baseDir);
+    const loaded = await brain.load();
+    if (!loaded) {
+      console.log('No project found. Run `agent-orch init` first.');
+      return;
+    }
+    
+    const tasks = Array.from(brain.tasks.nodes.values());
+    const locks = brain.locks.active;
+    
+    render(React.createElement(TuiApp, {
+      projectName: brain.name,
+      tasks,
+      agents: brain.agents,
+      locks
+    }));
   });
 
 program.parse();

@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { ProjectBrain } from '../types';
+import { ProjectBrain } from '../types.js';
 
 export class BrainPersistence {
   private filePath: string;

@@ -1,4 +1,4 @@
-import { TaskStatus } from '../types';
+import { TaskStatus } from '../types.js';
 
 export interface TransitionRecord {
   from: TaskStatus;

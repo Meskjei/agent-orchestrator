@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Orchestrator Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background-color: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+    
+    .container {
+      display: grid;
+      grid-template-columns: 250px 1fr 300px;
+      min-height: 100vh;
+    }
+    
+    .sidebar-nav {
+      background-color: #16213e;
+      padding: 20px;
+      border-right: 1px solid #2a3f5f;
+    }
+    
+    .sidebar-nav h2 {
+      color: #4cc9f0;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+    
+    .sidebar-nav ul {
+      list-style: none;
+    }
+    
+    .sidebar-nav li {
+      padding: 10px 15px;
+      margin: 5px 0;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .sidebar-nav li:hover {
+      background-color: #2a3f5f;
+    }
+    
+    .sidebar-nav li.active {
+      background-color: #4361ee;
+    }
+    
+    .main-content {
+      padding: 20px;
+      overflow-y: auto;
+    }
+    
+    .main-content h1 {
+      color: #4cc9f0;
+      margin-bottom: 20px;
+    }
+    
+    .section {
+      background-color: #16213e;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .section h3 {
+      color: #4cc9f0;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #2a3f5f;
+      padding-bottom: 10px;
+    }
+    
+    .sidebar-right {
+      background-color: #16213e;
+      padding: 20px;
+      border-left: 1px solid #2a3f5f;
+      overflow-y: auto;
+    }
+    
+    .sidebar-right h2 {
+      color: #4cc9f0;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+    
+    .task-item, .agent-item, .lock-item {
+      background-color: #1a1a2e;
+      padding: 12px;
+      border-radius: 5px;
+      margin-bottom: 10px;
+    }
+    
+    .task-item:hover, .agent-item:hover, .lock-item:hover {
+      background-color: #2a2f4f;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    
+    .status-pending { background-color: #f4a261; color: #1a1a2e; }
+    .status-in-progress, .status-running { background-color: #4361ee; color: white; }
+    .status-completed, .status-online { background-color: #4cc9f0; color: #1a1a2e; }
+    .status-failed, .status-offline { background-color: #e76f51; color: white; }
+    .status-blocked { background-color: #e63946; color: white; }
+    .status-idle { background-color: #6c757d; color: white; }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    
+    .status-indicator.online { background-color: #4cc9f0; }
+    .status-indicator.offline { background-color: #6c757d; }
+    .status-indicator.busy { background-color: #f4a261; }
+    
+    .log-stream {
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      max-height: 400px;
+      overflow-y: auto;
+      background-color: #0d0d1a;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    
+    .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #2a3f5f;
+    }
+    
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    
+    .log-timestamp {
+      color: #6c757d;
+      margin-right: 10px;
+    }
+    
+    .log-level {
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    
+    .log-level.debug { color: #6c757d; }
+    .log-level.info { color: #4cc9f0; }
+    .log-level.warn { color: #f4a261; }
+    .log-level.error { color: #e76f51; }
+    
+    .log-message {
+      color: #e0e0e0;
+    }
+    
+    .empty-state {
+      text-align: center;
+      color: #6c757d;
+      padding: 20px;
+    }
+    
+    .refresh-info {
+      font-size: 12px;
+      color: #6c757d;
+      margin-bottom: 15px;
+    }
+    
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    
+    .stat-card {
+      background-color: #1a1a2e;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    
+    .stat-value {
+      font-size: 32px;
+      font-weight: bold;
+      color: #4cc9f0;
+    }
+    
+    .stat-label {
+      color: #6c757d;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    
+    .connection-status {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 8px 15px;
+      border-radius: 5px;
+      font-size: 12px;
+      background-color: #16213e;
+      border: 1px solid #2a3f5f;
+    }
+    
+    .connection-status.connected { border-color: #4cc9f0; }
+    .connection-status.disconnected { border-color: #e76f51; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <nav class="sidebar-nav">
+      <h2>Navigation</h2>
+      <ul>
+        <li class="active">Dashboard</li>
+        <li>Tasks</li>
+        <li>Agents</li>
+        <li>Locks</li>
+        <li>Logs</li>
+      </ul>
+    </nav>
+    
+    <main class="main-content">
+      <h1>Agent Orchestrator Dashboard</h1>
+      
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-tasks">0</div>
+          <div class="stat-label">Tasks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-agents">0</div>
+          <div class="stat-label">Agents</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-locks">0</div>
+          <div class="stat-label">Locks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-status">--</div>
+          <div class="stat-label">Status</div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h3>Tasks</h3>
+        <p class="refresh-info">Auto-refresh every 5 seconds</p>
+        <div id="tasks-list">
+          <div class="empty-state">No tasks found</div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h3>Agents</h3>
+        <p class="refresh-info">Auto-refresh every 5 seconds</p>
+        <div id="agents-list">
+          <div class="empty-state">No agents found</div>
+        </div>
+      </div>
+      
+      <div class="section">
+        <h3>Locks</h3>
+        <p class="refresh-info">Auto-refresh every 5 seconds</p>
+        <div id="locks-list">
+          <div class="empty-state">No locks found</div>
+        </div>
+      </div>
+    </main>
+    
+    <aside class="sidebar-right">
+      <h2>Recent Activity</h2>
+      <div class="log-stream" id="log-stream">
+        <div class="empty-state">Connecting to log stream...</div>
+      </div>
+    </aside>
+  </div>
+  
+  <div class="connection-status disconnected" id="connection-status">Disconnected</div>
+
+  <script>
+    let eventSource = null;
+    
+    async function fetchData() {
+      try {
+        const [tasksRes, agentsRes, statusRes] = await Promise.all([
+          fetch('/api/tasks'),
+          fetch('/api/agents'),
+          fetch('/api/status')
+        ]);
+        
+        const tasks = await tasksRes.json();
+        const agents = await agentsRes.json();
+        const status = await statusRes.json();
+        
+        renderStats(status);
+        renderTasks(tasks);
+        renderAgents(agents);
+        renderLocks(status.locks || []);
+        
+        updateConnectionStatus(true);
+      } catch (err) {
+        console.error('Failed to fetch data:', err);
+        updateConnectionStatus(false);
+      }
+    }
+    
+    function renderStats(status) {
+      document.getElementById('stat-tasks').textContent = status.tasks || 0;
+      document.getElementById('stat-agents').textContent = status.agents || 0;
+      document.getElementById('stat-locks').textContent = status.locks || 0;
+      document.getElementById('stat-status').textContent = status.status || '--';
+    }
+    
+    function renderTasks(tasks) {
+      const container = document.getElementById('tasks-list');
+      if (!tasks || tasks.length === 0) {
+        container.innerHTML = '<div class="empty-state">No tasks found</div>';
+        return;
+      }
+      
+      container.innerHTML = tasks.map(task => `
+        <div class="task-item">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>${escapeHtml(task.title || task.id)}</strong>
+            <span class="status-badge status-${getStatusClass(task.status)}">${escapeHtml(task.status)}</span>
+          </div>
+          <div style="color: #6c757d; font-size: 13px; margin-top: 5px;">
+            ID: ${escapeHtml(task.id)}${task.type ? ' | Type: ' + escapeHtml(task.type) : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function renderAgents(agents) {
+      const container = document.getElementById('agents-list');
+      if (!agents || agents.length === 0) {
+        container.innerHTML = '<div class="empty-state">No agents found</div>';
+        return;
+      }
+      
+      container.innerHTML = agents.map(agent => `
+        <div class="agent-item">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <span class="status-indicator ${agent.status === 'online' ? 'online' : agent.status === 'busy' ? 'busy' : 'offline'}"></span>
+              <strong>${escapeHtml(agent.name || agent.id)}</strong>
+            </div>
+            <span class="status-badge status-${getStatusClass(agent.status)}">${escapeHtml(agent.status)}</span>
+          </div>
+          ${agent.currentTask ? `<div style="color: #6c757d; font-size: 13px; margin-top: 5px;">Task: ${escapeHtml(agent.currentTask)}</div>` : ''}
+        </div>
+      `).join('');
+    }
+    
+    function renderLocks(locks) {
+      const container = document.getElementById('locks-list');
+      if (!locks || locks.length === 0) {
+        container.innerHTML = '<div class="empty-state">No locks found</div>';
+        return;
+      }
+      
+      container.innerHTML = locks.map(lock => `
+        <div class="lock-item">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>${escapeHtml(lock.file || lock.id)}</strong>
+            <span class="status-badge status-${getStatusClass(lock.status)}">${escapeHtml(lock.status)}</span>
+          </div>
+          <div style="color: #6c757d; font-size: 13px; margin-top: 5px;">
+            Owner: ${escapeHtml(lock.owner || 'N/A')}
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    function connectLogStream() {
+      if (eventSource) {
+        eventSource.close();
+      }
+      
+      eventSource = new EventSource('/api/logs/stream');
+      
+      eventSource.onopen = () => {
+        updateConnectionStatus(true);
+      };
+      
+      eventSource.onmessage = (event) => {
+        try {
+          const log = JSON.parse(event.data);
+          appendLog(log);
+        } catch (e) {
+          console.error('Failed to parse log:', e);
+        }
+      };
+      
+      eventSource.onerror = () => {
+        updateConnectionStatus(false);
+        setTimeout(connectLogStream, 5000);
+      };
+    }
+    
+    function appendLog(log) {
+      const container = document.getElementById('log-stream');
+      const emptyState = container.querySelector('.empty-state');
+      if (emptyState) {
+        container.innerHTML = '';
+      }
+      
+      const logEntry = document.createElement('div');
+      logEntry.className = 'log-entry';
+      
+      const timestamp = new Date(log.timestamp).toLocaleTimeString();
+      logEntry.innerHTML = `
+        <span class="log-timestamp">${escapeHtml(timestamp)}</span>
+        <span class="log-level ${log.level}">${escapeHtml(log.level.toUpperCase())}</span>
+        <span class="log-message">${escapeHtml(log.message)}</span>
+      `;
+      
+      container.insertBefore(logEntry, container.firstChild);
+      
+      while (container.children.length > 100) {
+        container.removeChild(container.lastChild);
+      }
+    }
+    
+    function updateConnectionStatus(connected) {
+      const statusEl = document.getElementById('connection-status');
+      if (connected) {
+        statusEl.textContent = 'Connected';
+        statusEl.className = 'connection-status connected';
+      } else {
+        statusEl.textContent = 'Disconnected';
+        statusEl.className = 'connection-status disconnected';
+      }
+    }
+    
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+    
+    function getStatusClass(status) {
+      if (!status) return 'pending';
+      const statusMap = {
+        'pending': 'pending',
+        'in-progress': 'in-progress',
+        'completed': 'completed',
+        'failed': 'failed',
+        'blocked': 'blocked',
+        'online': 'online',
+        'offline': 'offline',
+        'idle': 'idle',
+        'running': 'running',
+        'active': 'running',
+        'released': 'completed'
+      };
+      return statusMap[status.toLowerCase()] || 'pending';
+    }
+    
+    fetchData();
+    connectLogStream();
+    setInterval(fetchData, 5000);
+  </script>
+</body>
+</html>

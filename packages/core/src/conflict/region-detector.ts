@@ -1,4 +1,4 @@
-import { CodeRegion, FileChange, RegionConflict, RegionConflictReport } from '../types';
+import { CodeRegion, FileChange, RegionConflict, RegionConflictReport } from '../types.js';
 
 export class RegionConflictDetector {
   regionsOverlap(r1: CodeRegion, r2: CodeRegion): boolean {

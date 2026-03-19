@@ -1,5 +1,5 @@
-import { ConflictReport, FileChange, PathConflict } from '../types';
-import { LockManager } from '../lock/manager';
+import { ConflictReport, FileChange, PathConflict } from '../types.js';
+import { LockManager } from '../lock/manager.js';
 
 export class ConflictDetector {
   constructor(private lockManager: LockManager) {}
