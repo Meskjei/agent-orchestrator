@@ -43,7 +43,15 @@ export class ProjectBrainImpl implements ProjectBrain {
   async load(): Promise<boolean> {
     const loaded = await this.persistence.load();
     if (loaded) {
-      Object.assign(this, loaded);
+      this.id = loaded.id;
+      this.name = loaded.name;
+      this.version = loaded.version;
+      this.goal = loaded.goal;
+      this.agents = loaded.agents;
+      this.tasks = loaded.tasks;
+      this.context = loaded.context;
+      this.decisions = loaded.decisions;
+      this.locks = loaded.locks;
       return true;
     }
     return false;
