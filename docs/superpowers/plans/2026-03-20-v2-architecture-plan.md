@@ -866,18 +866,15 @@ git commit -m "feat(acp): complete ACP Gateway package"
 **Files:**
 - Modify: `packages/orchestrator/package.json`
 
-- [ ] **Step 1: 调研 Mastra API**
-
-需要先确认 `@mastra/core` 的具体 API（Agent/Tool/Skill 定义方式）。这一步是研究，不写代码。
-
-- [ ] **Step 2: 添加依赖**
+- [ ] **Step 1: 添加依赖**
 
 ```bash
 cd packages/orchestrator
-pnpm add @mastra/core @agent-orchestrator/acp
+pnpm add @mastra/core @mastra/memory @agent-orchestrator/acp
+pnpm add @ai-sdk/openai @ai-sdk/anthropic  # LLM providers
 ```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
 git add packages/orchestrator/package.json pnpm-lock.yaml
@@ -896,6 +893,9 @@ git commit -m "chore(orchestrator): add Mastra and ACP dependencies"
 ```typescript
 // packages/orchestrator/src/config.ts
 
+import { openai } from '@ai-sdk/openai';
+import { anthropic } from '@ai-sdk/anthropic';
+
 export interface BrainLLMConfig {
   provider: 'anthropic' | 'openai' | 'local';
   model?: string;
@@ -906,17 +906,23 @@ export interface BrainLLMConfig {
 export function createLLM(config: BrainLLMConfig) {
   switch (config.provider) {
     case 'anthropic':
-      return createAnthropicModel(config);
+      return anthropic(config.model ?? 'claude-sonnet-4-20250514', {
+        apiKey: config.apiKey ?? process.env.ANTHROPIC_API_KEY,
+      });
     case 'openai':
-      return createOpenAIModel(config);
+      return openai(config.model ?? 'gpt-4o', {
+        apiKey: config.apiKey ?? process.env.OPENAI_API_KEY,
+      });
     case 'local':
-      return createLocalModel(config);
+      // 本地模型通过 openai-compatible provider
+      return openai(config.model ?? 'llama3', {
+        baseURL: config.baseUrl ?? 'http://localhost:11434/v1',
+        apiKey: config.apiKey ?? 'ollama',
+      });
     default:
       throw new Error(`Unknown provider: ${config.provider}`);
   }
 }
-
-// 具体实现需要根据 Mastra API 调整
 ```
 
 - [ ] **Step 2: Commit**
@@ -941,48 +947,108 @@ git commit -m "feat(orchestrator): add configurable LLM support"
 
 ```typescript
 // packages/orchestrator/src/tools/acp-dispatch.ts
-// 具体实现需要根据 Mastra Tool API 调整
 
-import { ACPGateway } from '@agent-orchestrator/acp';
+import { createTool } from '@mastra/core/tools';
+import { ACPGateway, DispatchResult } from '@agent-orchestrator/acp';
+import { z } from 'zod';
 
 export function createDispatchTool(gateway: ACPGateway) {
-  return {
-    id: 'acp_dispatch',
-    description: '派发任务给 Worker Agent 执行',
-    parameters: {
-      type: 'object',
-      properties: {
-        agentId: { type: 'string', description: 'Agent ID，如 opencode' },
-        prompt: { type: 'string', description: '要执行的任务描述' },
-        cwd: { type: 'string', description: '工作目录' },
-        files: {
-          type: 'array',
-          items: { type: 'string' },
-          description: '需要锁定的文件',
-        },
-      },
-      required: ['agentId', 'prompt', 'cwd'],
-    },
-    execute: async (params: { agentId: string; prompt: string; cwd: string; files?: string[] }) => {
+  return createTool({
+    id: 'acp-dispatch',
+    description: '派发任务给 Worker Agent 执行。选择 agentId，提供任务 prompt 和工作目录。',
+    inputSchema: z.object({
+      agentId: z.string().describe('Agent ID，如 opencode, claude'),
+      prompt: z.string().describe('要执行的任务描述'),
+      cwd: z.string().describe('工作目录路径'),
+      files: z.array(z.string()).optional().describe('需要锁定的文件列表'),
+    }),
+    execute: async (inputData) => {
       const result = await gateway.dispatch({
-        agentId: params.agentId,
-        prompt: params.prompt,
-        cwd: params.cwd,
-        files: params.files,
+        agentId: inputData.agentId,
+        prompt: inputData.prompt,
+        cwd: inputData.cwd,
+        files: inputData.files,
       });
-      return JSON.stringify(result);
+      return result;
     },
-  };
+  });
 }
 ```
 
 - [ ] **Step 2: 实现其他 tools**
 
-类似 acp_dispatch 的模式，实现：
-- `acp_cancel`: 调用 `gateway.cancel(workerId)`
-- `acp_status`: 调用 `gateway.getWorkerStatus(workerId)`
-- `acp_list_agents`: 调用 `gateway.listAgents()`
-- `lock_query`: 调用 `gateway.queryLock(files)`
+```typescript
+// packages/orchestrator/src/tools/acp-cancel.ts
+import { createTool } from '@mastra/core/tools';
+import { ACPGateway } from '@agent-orchestrator/acp';
+import { z } from 'zod';
+
+export function createCancelTool(gateway: ACPGateway) {
+  return createTool({
+    id: 'acp-cancel',
+    description: '取消正在执行的 Worker',
+    inputSchema: z.object({
+      workerId: z.string().describe('Worker ID'),
+    }),
+    execute: async (inputData) => {
+      await gateway.cancel(inputData.workerId);
+      return { cancelled: true };
+    },
+  });
+}
+
+// packages/orchestrator/src/tools/acp-status.ts
+import { createTool } from '@mastra/core/tools';
+import { ACPGateway } from '@agent-orchestrator/acp';
+import { z } from 'zod';
+
+export function createStatusTool(gateway: ACPGateway) {
+  return createTool({
+    id: 'acp-status',
+    description: '查询 Worker 的执行状态',
+    inputSchema: z.object({
+      workerId: z.string().describe('Worker ID'),
+    }),
+    execute: async (inputData) => {
+      return { status: gateway.getWorkerStatus(inputData.workerId) };
+    },
+  });
+}
+
+// packages/orchestrator/src/tools/acp-list-agents.ts
+import { createTool } from '@mastra/core/tools';
+import { ACPGateway } from '@agent-orchestrator/acp';
+import { z } from 'zod';
+
+export function createListAgentsTool(gateway: ACPGateway) {
+  return createTool({
+    id: 'acp-list-agents',
+    description: '列出所有可用的 Worker Agent 及其能力',
+    inputSchema: z.object({}),
+    execute: async () => {
+      return { agents: gateway.listAgents() };
+    },
+  });
+}
+
+// packages/orchestrator/src/tools/lock-query.ts
+import { createTool } from '@mastra/core/tools';
+import { ACPGateway } from '@agent-orchestrator/acp';
+import { z } from 'zod';
+
+export function createLockQueryTool(gateway: ACPGateway) {
+  return createTool({
+    id: 'lock-query',
+    description: '查询文件锁状态，判断文件是否被锁定',
+    inputSchema: z.object({
+      files: z.array(z.string()).describe('要查询的文件路径列表'),
+    }),
+    execute: async (inputData) => {
+      return { locks: gateway.queryLock(inputData.files) };
+    },
+  });
+}
+```
 
 - [ ] **Step 3: Commit**
 
@@ -1002,8 +1068,8 @@ git commit -m "feat(orchestrator): implement Mastra tools for ACP Gateway"
 
 ```typescript
 // packages/orchestrator/src/brain.ts
-// 具体实现需要根据 Mastra Agent API 调整
 
+import { Agent } from '@mastra/core/agent';
 import { ACPGateway } from '@agent-orchestrator/acp';
 import { BrainLLMConfig, createLLM } from './config.js';
 import { createDispatchTool } from './tools/acp-dispatch.js';
@@ -1019,11 +1085,16 @@ export interface BrainConfig {
 
 export function createBrain(config: BrainConfig) {
   const gateway = new ACPGateway();
-  const llm = createLLM(config.llm);
+  const model = createLLM(config.llm);
 
-  // Mastra Agent 定义
-  // 具体 API 需要根据 @mastra/core 调整
-  const agent = new MastraAgent({
+  const dispatchTool = createDispatchTool(gateway);
+  const cancelTool = createCancelTool(gateway);
+  const statusTool = createStatusTool(gateway);
+  const listAgentsTool = createListAgentsTool(gateway);
+  const lockQueryTool = createLockQueryTool(gateway);
+
+  const agent = new Agent({
+    id: 'orchestrator-brain',
     name: 'Orchestrator Brain',
     instructions: `你是一个任务编排代理。你的职责是：
 1. 分析复杂任务，分解为可执行的子任务
@@ -1032,17 +1103,20 @@ export function createBrain(config: BrainConfig) {
 4. 审查结果确保质量
 5. 管理文件锁防止冲突
 
-可用的 Worker Agent 通过 acp_list_agents 查看。
-分派任务使用 acp_dispatch。
-查询文件锁状态使用 lock_query。`,
-    model: llm,
-    tools: [
-      createDispatchTool(gateway),
-      createCancelTool(gateway),
-      createStatusTool(gateway),
-      createListAgentsTool(gateway),
-      createLockQueryTool(gateway),
-    ],
+工作流程：
+1. 使用 acp-list-agents 查看可用 Worker
+2. 使用 lock-query 检查文件锁状态
+3. 使用 acp-dispatch 派发任务给 Worker
+4. 使用 acp-status 检查 Worker 执行状态
+5. 使用 acp-cancel 取消不需要的 Worker`,
+    model,
+    tools: {
+      dispatchTool,
+      cancelTool,
+      statusTool,
+      listAgentsTool,
+      lockQueryTool,
+    },
   });
 
   return { agent, gateway };
@@ -1055,6 +1129,7 @@ export function createBrain(config: BrainConfig) {
 // packages/orchestrator/src/index.ts
 export { createBrain } from './brain.js';
 export type { BrainConfig } from './brain.js';
+export { ACPGateway } from '@agent-orchestrator/acp';
 ```
 
 - [ ] **Step 3: Commit**
