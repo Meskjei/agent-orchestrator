@@ -50,6 +50,22 @@ function createClientHandler(collector: SessionUpdateCollector): acp.Client {
   };
 }
 
+/**
+ * @deprecated Use ACPGateway from @agent-orchestrator/acp instead.
+ * This adapter directly manages ACP protocol, but the new architecture
+ * uses ACPGateway (platform layer) + Mastra Brain (orchestration).
+ *
+ * Migration:
+ * ```typescript
+ * // Old:
+ * const adapter = new ACPClientAdapter({ ... });
+ * const result = await adapter.execute({ task: '...' });
+ *
+ * // New:
+ * const { agent, gateway } = createBrain({ llm: { provider: 'anthropic' } });
+ * const result = await gateway.dispatch({ agentId: 'opencode', prompt: '...', cwd: '...' });
+ * ```
+ */
 export class ACPClientAdapter implements AgentAdapter {
   config: AgentAdapterConfig;
   private connectionPool?: ACPConnectionPool;
