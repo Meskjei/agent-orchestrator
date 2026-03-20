@@ -12,7 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@agent-orchestrator/core": "*"
+    "@agent-orchestrator/core": "*",
+    "@agentclientprotocol/sdk": "^0.16.1"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
