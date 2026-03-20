@@ -69,9 +69,35 @@ The **Lock Manager** prevents concurrent modification conflicts:
 
 **Agent Adapters** wrap third-party agents (CLI tools, APIs) to provide a unified interface:
 
+- **CliAdapter**: Wrap CLI-based agents with stdin/stdout communication
+- **ACPClientAdapter**: Communicate with ACP-compatible agents (opencode, claude code) via JSON-RPC
 - Input transformation (context → agent prompt)
 - Output parsing (agent response → structured output)
 - Lock protocol enforcement via prompt injection
+
+#### ACP Protocol
+
+The ACP (Agent Client Protocol) adapter enables communication with real AI agents:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Agent Orchestrator                        │
+│                                                              │
+│  ┌─────────────────┐    ┌─────────────────────────────────┐  │
+│  │ ACPClientAdapter │───►│  opencode acp (subprocess)      │  │
+│  │                 │    │  JSON-RPC over stdio             │  │
+│  │ - initialize()  │    │  - Session management            │  │
+│  │ - newSession()  │    │  - Prompt execution              │  │
+│  │ - prompt()      │    │  - Tool call handling            │  │
+│  └─────────────────┘    └─────────────────────────────────┘  │
+│                                                              │
+│  Features:                                                   │
+│  - Lock protocol prompt injection                            │
+│  - Timeout handling                                          │
+│  - Concurrent agent support                                   │
+│  - Tool call tracking                                        │
+└──────────────────────────────────────────────────────────────┘
+```
 
 ## Packages
 
@@ -109,9 +135,12 @@ Agent adapter infrastructure:
 | Module | Purpose |
 |--------|---------|
 | `CliAdapter` | Wrap CLI-based agents |
+| `ACPClientAdapter` | Communicate with ACP-compatible agents (opencode, claude code) |
+| `ACPConnectionPool` | Manage reusable subprocess connections |
 | `Transformer` | Transform input/output for agents |
 | `LockInterceptor` | Parse and enforce lock protocol in agent output |
 | `prompts/lock-protocol` | Generate lock protocol prompts |
+| `acp/tools/lock-tools` | MCP lock tools for agent integration |
 
 ### `@agent-orchestrator/cli`
 

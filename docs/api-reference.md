@@ -1,8 +1,10 @@
 # API Reference
 
-This document describes the REST API endpoints provided by the Agent Orchestrator web server.
+This document describes the REST API endpoints and programmatic APIs provided by Agent Orchestrator.
 
-## Base URL
+## REST API
+
+### Base URL
 
 ```
 http://localhost:3000/api
@@ -381,3 +383,115 @@ ws.onmessage = (event) => {
 | `agent:status` | Agent status changed |
 | `lock:acquired` | File lock acquired |
 | `lock:released` | File lock released |
+
+---
+
+## Programmatic API
+
+### ACPClientAdapter
+
+Communicate with ACP-compatible AI agents (opencode, claude code):
+
+```typescript
+import { ACPClientAdapter } from '@agent-orchestrator/adapter';
+
+const adapter = new ACPClientAdapter({
+  name: 'opencode',       // Agent name
+  command: 'opencode',    // Command to spawn
+  args: ['acp'],          // Command arguments
+  cwd: '/path/to/project', // Working directory
+  timeout: 90000          // Timeout in ms (default: 300000)
+});
+```
+
+#### execute(context)
+
+Execute a task with the agent:
+
+```typescript
+const result = await adapter.execute({
+  task: 'Add a multiply function to math.js',
+  context: {}
+});
+
+// Result structure
+interface AdapterResult {
+  output: string;           // Agent's text output
+  artifacts?: string[];     // Created files/paths
+  error?: string;           // Error message if failed
+  locksAcquired?: string[]; // Files locked during execution
+  locksReleased?: string[]; // Files released during execution
+  toolCalls?: ToolCallRecord[]; // Tool calls made by agent
+}
+```
+
+#### getStatus()
+
+Check if the agent is available:
+
+```typescript
+const status = await adapter.getStatus();
+// { online: true } or { online: false, error: "..." }
+```
+
+#### cancel()
+
+Cancel any running execution:
+
+```typescript
+await adapter.cancel();
+```
+
+### ACPConnectionPool
+
+Manage shared connections for concurrent agents:
+
+```typescript
+import { ACPConnectionPool, ACPClientAdapter } from '@agent-orchestrator/adapter';
+
+const pool = new ACPConnectionPool(300000); // Default timeout
+
+const adapter1 = new ACPClientAdapter({
+  name: 'agent1',
+  command: 'opencode',
+  args: ['acp'],
+  cwd: '/project'
+}, pool);
+
+const adapter2 = new ACPClientAdapter({
+  name: 'agent2',
+  command: 'opencode',
+  args: ['acp'],
+  cwd: '/project'
+}, pool);
+
+// Run concurrently - connections are reused when possible
+await Promise.all([
+  adapter1.execute({ task: 'Task 1', context: {} }),
+  adapter2.execute({ task: 'Task 2', context: {} })
+]);
+
+await pool.closeAll();
+```
+
+### Lock Protocol
+
+The adapter automatically injects lock protocol instructions into prompts. Agents are instructed to:
+
+1. **Declare locks** before modifying files
+2. **Make changes** to the declared files
+3. **Release locks** after completing modifications
+
+```typescript
+import { LOCK_PROTOCOL_PROMPT } from '@agent-orchestrator/adapter';
+
+console.log(LOCK_PROTOCOL_PROMPT);
+// Outputs the lock protocol instructions
+```
+
+### Supported Agents
+
+| Agent | Command | Protocol | Status |
+|-------|---------|----------|--------|
+| opencode | `opencode acp` | ACP v1 | ✅ Verified |
+| claude code | `claude acp` | ACP v1 | 🧪 Experimental |
