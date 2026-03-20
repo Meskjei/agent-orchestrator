@@ -14,6 +14,34 @@ export interface LockProtocolContext {
   task: TaskInfo;
 }
 
+export const LOCK_PROTOCOL_PROMPT = `
+## MANDATORY LOCK PROTOCOL
+
+You are working in a multi-agent environment. Before modifying ANY file, you MUST follow this protocol:
+
+### Step 1: Declare Lock
+Call the \`lock_declare\` tool before making changes:
+\`\`\`
+lock_declare({ files: ["/absolute/path/to/file.ts"] })
+\`\`\`
+
+### Step 2: Make Changes
+Perform your file modifications using available tools (edit, write, etc.)
+
+### Step 3: Release Lock
+After completing modifications, call \`lock_release\`:
+\`\`\`
+lock_release({ files: ["/absolute/path/to/file.ts"] })
+\`\`\`
+
+### Why This Matters
+- Prevents conflicts with other agents working on the same files
+- Ensures coordinated multi-agent collaboration
+- Failure to follow this protocol may cause your changes to be rejected
+
+Always use absolute file paths when calling these tools.
+`;
+
 export function generateLockProtocolPrompt(context: LockProtocolContext): string {
   const { locks, task } = context;
   
