@@ -10,4 +10,5 @@ export type { DecisionInput, DecisionLogInput, DecisionLogResult } from './skill
 
 export { createBrain } from './brain.js';
 export type { BrainConfig } from './brain.js';
+export { createOrchestratorWorkflow } from './workflow/orchestrator-workflow.js';
 export { ACPGateway } from '@agent-orchestrator/acp';

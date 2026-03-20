@@ -6,6 +6,7 @@ import { createCancelTool } from './tools/acp-cancel.js';
 import { createStatusTool } from './tools/acp-status.js';
 import { createListAgentsTool } from './tools/acp-list-agents.js';
 import { createLockQueryTool } from './tools/lock-query.js';
+import { createOrchestratorWorkflow } from './workflow/orchestrator-workflow.js';
 
 export interface BrainConfig {
   llm: BrainLLMConfig;
@@ -48,5 +49,7 @@ export function createBrain(config: BrainConfig) {
     },
   });
 
-  return { agent, gateway };
+  const workflow = createOrchestratorWorkflow(agent, gateway);
+
+  return { agent, gateway, workflow };
 }
