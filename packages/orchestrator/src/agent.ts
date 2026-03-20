@@ -1,5 +1,10 @@
+/**
+ * @deprecated This file contains the old hardcoded orchestrator.
+ * Use createBrain() from './brain.js' instead (Mastra Agent with ACP tools).
+ */
 import { TaskDecompositionSkill } from './skills/task-decomposition';
 
+/** @deprecated Use createBrain() instead */
 export const orchestratorConfig = {
   id: 'orchestrator',
   name: 'Orchestrator Agent',
@@ -23,4 +28,5 @@ export const orchestratorConfig = {
   `
 };
 
+/** @deprecated Use Mastra Agent tools instead */
 export { TaskDecompositionSkill } from './skills/task-decomposition';
