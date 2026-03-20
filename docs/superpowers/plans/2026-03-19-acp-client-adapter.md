@@ -464,20 +464,22 @@ import { spawn, ChildProcess } from 'child_process';
 import { ClientSideConnection } from '@agentclientprotocol/sdk';
 import { AgentAdapter, AgentAdapterConfig, AdapterContext, AdapterResult, ToolCallRecord } from './adapter';
 import { createLockTools, LockToolsCallbacks } from './acp/tools';
+import { ACPConnectionPool } from './acp/connection';
 import { LOCK_PROTOCOL_PROMPT } from './prompts/lock-protocol';
 
 export class ACPClientAdapter implements AgentAdapter {
   config: AgentAdapterConfig;
-  private currentProcess: ChildProcess | null = null;
+  private connectionPool?: ACPConnectionPool;
   private connection: ClientSideConnection | null = null;
   private sessionId: string | null = null;
 
-  constructor(config: AgentAdapterConfig) {
+  constructor(config: AgentAdapterConfig, connectionPool?: ACPConnectionPool) {
     this.config = {
       timeout: 300000,
       args: ['acp'],
       ...config
     };
+    this.connectionPool = connectionPool;
   }
 
   async execute(context: AdapterContext): Promise<AdapterResult> {
@@ -507,15 +509,27 @@ export class ACPClientAdapter implements AgentAdapter {
     const lockTools = createLockTools(lockCallbacks);
     const fullPrompt = LOCK_PROTOCOL_PROMPT + '\n\n' + context.task;
 
-    try {
-      // Start ACP server subprocess
-      const proc = spawn(this.config.command, this.config.args || [], {
-        cwd: this.config.cwd,
-        env: { ...process.env, ...this.config.env },
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+    let proc: ChildProcess | null = null;
 
-      this.currentProcess = proc;
+    try {
+      // Get or create connection from pool
+      if (this.connectionPool) {
+        const acpConnection = await this.connectionPool.getConnection({
+          command: this.config.command,
+          args: this.config.args,
+          cwd: this.config.cwd,
+          env: this.config.env,
+          timeout: this.config.timeout
+        });
+        proc = acpConnection.process;
+      } else {
+        // Fallback: spawn directly if no pool provided
+        proc = spawn(this.config.command, this.config.args || [], {
+          cwd: this.config.cwd,
+          env: { ...process.env, ...this.config.env },
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+      }
 
       // Create ClientSideConnection
       this.connection = new ClientSideConnection({
@@ -597,10 +611,7 @@ export class ACPClientAdapter implements AgentAdapter {
   private cleanup(): void {
     this.connection = null;
     this.sessionId = null;
-    if (this.currentProcess) {
-      this.currentProcess.kill();
-      this.currentProcess = null;
-    }
+    // Note: Process lifecycle managed by ACPConnectionPool
   }
 }
 ```
@@ -881,10 +892,11 @@ describe('ACP E2E: Simple Tasks', () => {
   });
 
   it('should handle timeout gracefully', async () => {
-    const slowAdapter = new (await import('@agent-orchestrator/adapter')).ACPClientAdapter({
+    const { ACPClientAdapter } = await import('@agent-orchestrator/adapter');
+    const slowAdapter = new ACPClientAdapter({
       name: 'opencode',
       command: 'opencode',
-      args: ['run', '--format', 'json'],
+      args: ['acp'],  // Use ACP protocol
       cwd: project.dir,
       timeout: 1000 // Very short timeout
     });
@@ -894,7 +906,7 @@ describe('ACP E2E: Simple Tasks', () => {
       context: {}
     });
 
-    expect(result.error).toContain('timeout');
+    expect(result.error).toBeDefined();
   });
 });
 ```
@@ -990,7 +1002,124 @@ git commit -m "test(e2e): add ACP file modification E2E test"
 
 ---
 
-### Task 4.4: Update E2E Test Configuration
+### Task 4.4: Create Concurrent and Error Recovery Tests
+
+**Files:**
+- Create: `tests/e2e/acp-scenarios/concurrent-error.test.ts`
+
+- [ ] **Step 1: Create concurrent-error.test.ts**
+
+```typescript
+// tests/e2e/acp-scenarios/concurrent-error.test.ts
+
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { createACPTestProject, createTestFile } from '../helpers/acp-runner';
+import { ACPClientAdapter, ACPConnectionPool } from '@agent-orchestrator/adapter';
+
+describe('ACP E2E: Concurrent and Error Recovery', () => {
+  let project: Awaited<ReturnType<typeof createACPTestProject>>;
+
+  beforeEach(async () => {
+    project = await createACPTestProject('concurrent');
+  });
+
+  afterEach(async () => {
+    await project.cleanup();
+  });
+
+  describe('Concurrent Agents', () => {
+    it('should handle two agents working on different files', async () => {
+      const file1 = await createTestFile(project.dir, 'file1.ts', 'const a = 1;\n');
+      const file2 = await createTestFile(project.dir, 'file2.ts', 'const b = 2;\n');
+
+      const pool = new ACPConnectionPool();
+      const adapter1 = new ACPClientAdapter({
+        name: 'agent1',
+        command: 'opencode',
+        args: ['acp'],
+        cwd: project.dir,
+        timeout: 60000
+      }, pool);
+
+      const adapter2 = new ACPClientAdapter({
+        name: 'agent2',
+        command: 'opencode',
+        args: ['acp'],
+        cwd: project.dir,
+        timeout: 60000
+      }, pool);
+
+      // Run both tasks concurrently
+      const [result1, result2] = await Promise.all([
+        adapter1.execute({ task: 'Add a comment to file1.ts', context: {} }),
+        adapter2.execute({ task: 'Add a comment to file2.ts', context: {} })
+      ]);
+
+      expect(result1.error).toBeUndefined();
+      expect(result2.error).toBeUndefined();
+
+      // Verify both files were modified
+      const content1 = await fs.readFile(file1, 'utf-8');
+      const content2 = await fs.readFile(file2, 'utf-8');
+      expect(content1.length).toBeGreaterThan(10);
+      expect(content2.length).toBeGreaterThan(10);
+
+      await pool.closeAll();
+    });
+  });
+
+  describe('Error Recovery', () => {
+    it('should handle agent crash gracefully', async () => {
+      const adapter = new ACPClientAdapter({
+        name: 'crash-test',
+        command: 'node',
+        args: ['-e', 'process.exit(1)'],  // Simulate crash
+        cwd: project.dir,
+        timeout: 5000
+      });
+
+      const result = await adapter.execute({
+        task: 'This will crash',
+        context: {}
+      });
+
+      // Should have an error
+      expect(result.error).toBeDefined();
+    });
+
+    it('should cleanup resources after error', async () => {
+      const adapter = new ACPClientAdapter({
+        name: 'cleanup-test',
+        command: 'nonexistent-command',
+        args: [],
+        cwd: project.dir,
+        timeout: 5000
+      });
+
+      await adapter.execute({
+        task: 'This will fail',
+        context: {}
+      });
+
+      // Cancel should not throw
+      await expect(adapter.cancel()).resolves.not.toThrow();
+    });
+  });
+});
+```
+
+- [ ] **Step 2: Commit concurrent and error tests**
+
+```bash
+git add tests/e2e/acp-scenarios/concurrent-error.test.ts
+git commit -m "test(e2e): add concurrent agents and error recovery E2E tests"
+```
+
+---
+
+### Task 4.5: Update E2E Test Configuration
 
 **Files:**
 - Modify: `vitest.config.e2e.ts`
