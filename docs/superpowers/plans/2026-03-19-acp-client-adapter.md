@@ -208,9 +208,12 @@ git commit -m "feat(adapter): add lock tools for MCP protocol"
 - Create: `packages/adapter/src/acp/connection.ts`
 - Create: `packages/adapter/src/acp/index.ts`
 
-- [ ] **Step 1: Note on SDK dependency**
-  
-  The `@agentclientprotocol/sdk` will be installed in Chunk 3 when implementing `ACPClientAdapter` which uses `ClientSideConnection` for proper JSON-RPC protocol handling. This `connection.ts` only manages subprocess lifecycle.
+- [ ] **Step 1: Install @agentclientprotocol/sdk dependency**
+
+```bash
+cd packages/adapter
+npm install @agentclientprotocol/sdk
+```
 
 - [ ] **Step 2: Create connection.ts**
 
@@ -452,12 +455,13 @@ git commit -m "test(adapter): add connection pool unit tests"
 **Files:**
 - Create: `packages/adapter/src/acp-adapter.ts`
 
-- [ ] **Step 1: Create acp-adapter.ts**
+- [ ] **Step 1: Create acp-adapter.ts using ACP SDK**
 
 ```typescript
 // packages/adapter/src/acp-adapter.ts
 
 import { spawn, ChildProcess } from 'child_process';
+import { ClientSideConnection } from '@agentclientprotocol/sdk';
 import { AgentAdapter, AgentAdapterConfig, AdapterContext, AdapterResult, ToolCallRecord } from './adapter';
 import { createLockTools, LockToolsCallbacks } from './acp/tools';
 import { LOCK_PROTOCOL_PROMPT } from './prompts/lock-protocol';
@@ -465,7 +469,8 @@ import { LOCK_PROTOCOL_PROMPT } from './prompts/lock-protocol';
 export class ACPClientAdapter implements AgentAdapter {
   config: AgentAdapterConfig;
   private currentProcess: ChildProcess | null = null;
-  private cancelled: boolean = false;
+  private connection: ClientSideConnection | null = null;
+  private sessionId: string | null = null;
 
   constructor(config: AgentAdapterConfig) {
     this.config = {
@@ -476,7 +481,6 @@ export class ACPClientAdapter implements AgentAdapter {
   }
 
   async execute(context: AdapterContext): Promise<AdapterResult> {
-    this.cancelled = false;
     const locksAcquired: string[] = [];
     const locksReleased: string[] = [];
     const toolCalls: ToolCallRecord[] = [];
@@ -500,9 +504,11 @@ export class ACPClientAdapter implements AgentAdapter {
       }
     };
 
+    const lockTools = createLockTools(lockCallbacks);
     const fullPrompt = LOCK_PROTOCOL_PROMPT + '\n\n' + context.task;
 
-    return new Promise((resolve) => {
+    try {
+      // Start ACP server subprocess
       const proc = spawn(this.config.command, this.config.args || [], {
         cwd: this.config.cwd,
         env: { ...process.env, ...this.config.env },
@@ -510,62 +516,54 @@ export class ACPClientAdapter implements AgentAdapter {
       });
 
       this.currentProcess = proc;
-      let stdout = '';
-      let stderr = '';
 
-      proc.stdout?.on('data', (data) => {
-        stdout += data.toString();
+      // Create ClientSideConnection
+      this.connection = new ClientSideConnection({
+        input: proc.stdout!,
+        output: proc.stdin!
       });
 
-      proc.stderr?.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      const timeout = setTimeout(() => {
-        if (!this.cancelled) {
-          proc.kill();
-          resolve({
-            output: stdout,
-            error: 'Command timed out',
-            locksAcquired,
-            locksReleased,
-            toolCalls
-          });
+      // Initialize connection
+      await this.connection.initialize({
+        clientInfo: {
+          name: 'agent-orchestrator',
+          version: '1.0.0'
         }
-      }, this.config.timeout);
-
-      proc.on('close', (code) => {
-        clearTimeout(timeout);
-        this.currentProcess = null;
-
-        // Parse stdout for JSON events if using --format json
-        const output = this.parseOutput(stdout);
-
-        resolve({
-          output,
-          error: code !== 0 && !this.cancelled ? stderr || `Exit code: ${code}` : undefined,
-          locksAcquired,
-          locksReleased,
-          toolCalls
-        });
       });
 
-      proc.on('error', (err) => {
-        clearTimeout(timeout);
-        this.currentProcess = null;
-        resolve({
-          output: '',
-          error: err.message,
-          locksAcquired,
-          locksReleased,
-          toolCalls
-        });
+      // Create session
+      this.sessionId = await this.connection.createSession({
+        cwd: this.config.cwd,
+        model: this.config.model
       });
 
-      // Send prompt to stdin
-      proc.stdin?.write(fullPrompt);
-      proc.stdin?.end();
-    });
+      // Send prompt with lock tools
+      const response = await this.connection.sendPrompt(this.sessionId, fullPrompt, {
+        tools: Object.values(lockTools),
+        timeout: this.config.timeout
+      });
+
+      // Close session
+      await this.connection.closeSession(this.sessionId);
+
+      return {
+        output: response.content,
+        artifacts: response.artifacts,
+        locksAcquired,
+        locksReleased,
+        toolCalls
+      };
+    } catch (error) {
+      return {
+        output: '',
+        error: error instanceof Error ? error.message : String(error),
+        locksAcquired,
+        locksReleased,
+        toolCalls
+      };
+    } finally {
+      this.cleanup();
+    }
   }
 
   async getStatus(): Promise<{ online: boolean; error?: string }> {
@@ -588,32 +586,21 @@ export class ACPClientAdapter implements AgentAdapter {
   }
 
   async cancel(): Promise<void> {
-    this.cancelled = true;
+    if (this.connection && this.sessionId) {
+      try {
+        await this.connection.cancelPrompt(this.sessionId);
+      } catch {}
+    }
+    this.cleanup();
+  }
+
+  private cleanup(): void {
+    this.connection = null;
+    this.sessionId = null;
     if (this.currentProcess) {
       this.currentProcess.kill();
       this.currentProcess = null;
     }
-  }
-
-  private parseOutput(stdout: string): string {
-    // Try to parse as JSON lines (opencode --format json)
-    const lines = stdout.split('\n');
-    const textParts: string[] = [];
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const event = JSON.parse(line);
-        if (event.type === 'text' && event.part?.text) {
-          textParts.push(event.part.text);
-        }
-      } catch {
-        // Not JSON, treat as plain text
-        textParts.push(line);
-      }
-    }
-
-    return textParts.join('\n');
   }
 }
 ```
@@ -632,13 +619,27 @@ git commit -m "feat(adapter): implement ACPClientAdapter"
 **Files:**
 - Create: `packages/adapter/src/__tests__/acp-adapter.test.ts`
 
-- [ ] **Step 1: Create acp-adapter.test.ts**
+- [ ] **Step 1: Create acp-adapter.test.ts with mocked SDK**
 
 ```typescript
 // packages/adapter/src/__tests__/acp-adapter.test.ts
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ACPClientAdapter } from '../acp-adapter';
+
+// Mock the SDK
+vi.mock('@agentclientprotocol/sdk', () => ({
+  ClientSideConnection: vi.fn().mockImplementation(() => ({
+    initialize: vi.fn().mockResolvedValue(undefined),
+    createSession: vi.fn().mockResolvedValue('test-session-id'),
+    sendPrompt: vi.fn().mockResolvedValue({
+      content: 'Task completed successfully',
+      artifacts: []
+    }),
+    closeSession: vi.fn().mockResolvedValue(undefined),
+    cancelPrompt: vi.fn().mockResolvedValue(undefined)
+  }))
+}));
 
 describe('ACPClientAdapter', () => {
   let adapter: ACPClientAdapter;
@@ -647,7 +648,7 @@ describe('ACPClientAdapter', () => {
     it('should set default timeout', () => {
       adapter = new ACPClientAdapter({
         name: 'test',
-        command: 'echo'
+        command: 'opencode'
       });
       expect(adapter.config.timeout).toBe(300000);
     });
@@ -655,7 +656,7 @@ describe('ACPClientAdapter', () => {
     it('should allow custom timeout', () => {
       adapter = new ACPClientAdapter({
         name: 'test',
-        command: 'echo',
+        command: 'opencode',
         timeout: 60000
       });
       expect(adapter.config.timeout).toBe(60000);
@@ -674,7 +675,7 @@ describe('ACPClientAdapter', () => {
     it('should return online: true for valid command', async () => {
       adapter = new ACPClientAdapter({
         name: 'test',
-        command: 'echo'
+        command: 'node'
       });
       
       const status = await adapter.getStatus();
@@ -697,36 +698,22 @@ describe('ACPClientAdapter', () => {
     beforeEach(() => {
       adapter = new ACPClientAdapter({
         name: 'test',
-        command: 'echo',
-        args: [],
+        command: 'opencode',
         timeout: 5000
       });
     });
 
-    it('should execute command and return output', async () => {
-      const result = await adapter.execute({
-        task: 'hello world',
-        context: {}
-      });
-
-      expect(result.output).toContain('hello world');
-      expect(result.error).toBeUndefined();
-    });
-
-    it('should include lock protocol in prompt', async () => {
+    it('should return output from mocked connection', async () => {
       const result = await adapter.execute({
         task: 'test task',
         context: {}
       });
 
-      // Output should contain both the lock protocol prompt and task
-      expect(result.output).toContain('LOCK PROTOCOL');
-      expect(result.output).toContain('test task');
+      expect(result.output).toBe('Task completed successfully');
+      expect(result.error).toBeUndefined();
     });
 
-    it('should track tool calls when lock_declare is mentioned', async () => {
-      // This test verifies the lock callback structure
-      // Real lock detection happens with actual ACP protocol
+    it('should track lock tool calls arrays', async () => {
       const result = await adapter.execute({
         task: 'test',
         context: {}
@@ -739,25 +726,13 @@ describe('ACPClientAdapter', () => {
   });
 
   describe('cancel', () => {
-    it('should cancel running execution', async () => {
+    it('should be callable without error', async () => {
       adapter = new ACPClientAdapter({
         name: 'test',
-        command: 'node',
-        args: ['-e', 'setTimeout(() => {}, 100000)'],
-        timeout: 10000
+        command: 'opencode'
       });
 
-      const executePromise = adapter.execute({
-        task: 'test',
-        context: {}
-      });
-
-      // Cancel after a short delay
-      setTimeout(() => adapter.cancel(), 100);
-
-      const result = await executePromise;
-      // Process should be killed, may or may not have error
-      expect(result).toBeDefined();
+      await expect(adapter.cancel()).resolves.not.toThrow();
     });
   });
 });
@@ -835,7 +810,7 @@ export async function createACPTestProject(name: string): Promise<ACPTestProject
   const adapter = new ACPClientAdapter({
     name: 'opencode',
     command: 'opencode',
-    args: ['run', '--format', 'json'],
+    args: ['acp'],  // Use ACP protocol
     cwd: dir,
     timeout: 60000
   });
@@ -1134,11 +1109,16 @@ git add -A
 git commit -m "feat(adapter): complete ACP Client Adapter implementation"
 ```
 
-- [ ] **Step 2: Push changes**
+- [ ] **Step 2: Create feature branch and push**
 
 ```bash
-git push origin main
+git checkout -b feature/acp-client-adapter
+git push origin feature/acp-client-adapter
 ```
+
+- [ ] **Step 3: Create Pull Request**
+
+Use `gh pr create` to create a PR for review.
 
 ---
 
