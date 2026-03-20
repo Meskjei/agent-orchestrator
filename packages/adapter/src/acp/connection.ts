@@ -97,7 +97,8 @@ export class ACPConnectionPool {
   }
 
   private getConnectionKey(config: ACPConnectionConfig): string {
-    return `${config.command}:${config.cwd || process.cwd()}`;
+    const argsKey = (config.args || []).join(',');
+    return `${config.command}:${argsKey}:${config.cwd || process.cwd()}`;
   }
 
   private findKeyByName(name: string): string | null {
