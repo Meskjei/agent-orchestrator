@@ -208,12 +208,9 @@ git commit -m "feat(adapter): add lock tools for MCP protocol"
 - Create: `packages/adapter/src/acp/connection.ts`
 - Create: `packages/adapter/src/acp/index.ts`
 
-- [ ] **Step 1: Install @agentclientprotocol/sdk dependency**
-
-```bash
-cd packages/adapter
-npm install @agentclientprotocol/sdk
-```
+- [ ] **Step 1: Note on SDK dependency**
+  
+  The `@agentclientprotocol/sdk` will be installed in Chunk 3 when implementing `ACPClientAdapter` which uses `ClientSideConnection` for proper JSON-RPC protocol handling. This `connection.ts` only manages subprocess lifecycle.
 
 - [ ] **Step 2: Create connection.ts**
 
@@ -221,7 +218,6 @@ npm install @agentclientprotocol/sdk
 // packages/adapter/src/acp/connection.ts
 
 import { spawn, ChildProcess } from 'child_process';
-import * as EventEmitter from 'events';
 
 export interface ACPConnectionConfig {
   command: string;
@@ -389,7 +385,7 @@ describe('ACPConnectionPool', () => {
     });
 
     it('should reuse existing connection for same config', async () => {
-      const config = { command: 'sleep', args: ['10'] };
+      const config = { command: 'node', args: ['-e', 'setTimeout(() => {}, 10000)'] };
       
       const conn1 = await pool.getConnection(config);
       const conn2 = await pool.getConnection(config);
@@ -407,19 +403,19 @@ describe('ACPConnectionPool', () => {
 
   describe('close', () => {
     it('should close connection by name', async () => {
-      await pool.getConnection({ command: 'sleep', args: ['10'] });
-      await pool.close('sleep');
+      await pool.getConnection({ command: 'node', args: ['-e', 'setTimeout(() => {}, 10000)'] });
+      await pool.close('node');
 
       // Connection should be removed
-      const conn = await pool.getConnection({ command: 'sleep', args: ['10'] });
+      const conn = await pool.getConnection({ command: 'node', args: ['-e', 'setTimeout(() => {}, 10000)'] });
       expect(conn).toBeDefined();
     });
   });
 
   describe('closeAll', () => {
     it('should close all connections', async () => {
-      await pool.getConnection({ command: 'sleep', args: ['10'] });
-      await pool.getConnection({ command: 'sleep', args: ['20'] });
+      await pool.getConnection({ command: 'node', args: ['-e', 'setTimeout(() => {}, 10000)'] });
+      await pool.getConnection({ command: 'node', args: ['-e', 'setTimeout(() => {}, 20000)'] });
       
       await pool.closeAll();
 
@@ -746,8 +742,8 @@ describe('ACPClientAdapter', () => {
     it('should cancel running execution', async () => {
       adapter = new ACPClientAdapter({
         name: 'test',
-        command: 'sleep',
-        args: ['100'],
+        command: 'node',
+        args: ['-e', 'setTimeout(() => {}, 100000)'],
         timeout: 10000
       });
 
