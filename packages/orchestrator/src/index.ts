@@ -7,3 +7,7 @@ export { TaskReviewSkill } from './skills/task-review';
 export type { TaskOutput, ReviewInput, SpecReviewResult, QualityReviewResult, ReviewReport } from './skills/task-review';
 export { DecisionLogSkill } from './skills/decision-log';
 export type { DecisionInput, DecisionLogInput, DecisionLogResult } from './skills/decision-log';
+
+export { createBrain } from './brain.js';
+export type { BrainConfig } from './brain.js';
+export { ACPGateway } from '@agent-orchestrator/acp';
