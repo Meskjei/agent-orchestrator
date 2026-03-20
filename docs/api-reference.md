@@ -1,36 +1,36 @@
-# API Reference
+# API 参考
 
-This document describes the REST API endpoints and programmatic APIs provided by Agent Orchestrator.
+本文档描述 Agent Orchestrator 提供的 REST API 端点和编程 API。
 
 ## REST API
 
-### Base URL
+### 基础 URL
 
 ```
 http://localhost:3000/api
 ```
 
-## Authentication
+### 认证
 
-Most endpoints require authentication via Bearer token:
+大多数端点需要通过 Bearer token 认证：
 
 ```
 Authorization: Bearer <token>
 ```
 
-Public endpoints (no auth required):
+公开端点（无需认证）：
 - `GET /api/health`
 - `GET /api/status`
 
-## Endpoints
+## 端点
 
-### Health Check
+### 健康检查
 
 ```http
 GET /api/health
 ```
 
-**Response:**
+**响应:**
 ```json
 {
   "status": "ok",
@@ -40,13 +40,13 @@ GET /api/health
 
 ---
 
-### Project Status
+### 项目状态
 
 ```http
 GET /api/status
 ```
 
-**Response:**
+**响应:**
 ```json
 {
   "status": "running",
@@ -63,21 +63,21 @@ GET /api/status
 
 ---
 
-### Tasks
+### 任务
 
-#### List All Tasks
+#### 获取所有任务
 
 ```http
 GET /api/tasks
 ```
 
-**Response:**
+**响应:**
 ```json
 [
   {
     "id": "T001",
-    "title": "Analyze CardTableViewCell dependencies",
-    "description": "Analyze the dependencies of CardTableViewCell",
+    "title": "分析 CardTableViewCell 依赖",
+    "description": "分析 CardTableViewCell 的依赖关系",
     "type": "task",
     "status": "executing",
     "assignee": "qoder",
@@ -85,8 +85,8 @@ GET /api/tasks
     "estimatedFiles": ["CardTableViewCell.m", "CardTableViewCell.h"],
     "expectedOutput": {
       "type": "document",
-      "description": "Dependency analysis document",
-      "acceptanceCriteria": ["List all dependencies", "Generate dependency graph"]
+      "description": "依赖分析文档",
+      "acceptanceCriteria": ["列出所有依赖", "生成依赖图"]
     },
     "statusHistory": [
       { "status": "pending", "changedAt": "2024-01-15T09:00:00.000Z", "changedBy": "cli" },
@@ -97,22 +97,22 @@ GET /api/tasks
 ]
 ```
 
-#### Get Task by ID
+#### 根据 ID 获取任务
 
 ```http
 GET /api/tasks/:id
 ```
 
-**Response:** Single task object (see above)
+**响应:** 单个任务对象（见上）
 
-**Error Response (404):**
+**错误响应 (404):**
 ```json
 {
-  "error": "Task not found"
+  "error": "任务未找到"
 }
 ```
 
-#### Create Task
+#### 创建任务
 
 ```http
 POST /api/tasks
@@ -120,37 +120,37 @@ Content-Type: application/json
 
 {
   "id": "T002",
-  "title": "Implement CardViewModel",
-  "description": "Implement SwiftUI CardViewModel",
+  "title": "实现 CardViewModel",
+  "description": "实现 SwiftUI CardViewModel",
   "type": "task",
   "status": "pending",
   "dependencies": ["T001"],
   "estimatedFiles": ["CardViewModel.swift"],
   "expectedOutput": {
     "type": "code",
-    "description": "SwiftUI CardViewModel implementation",
-    "acceptanceCriteria": ["Follows MVVM pattern", "Includes unit tests"]
+    "description": "SwiftUI CardViewModel 实现",
+    "acceptanceCriteria": ["遵循 MVVM 模式", "包含单元测试"]
   }
 }
 ```
 
-**Response (201):**
+**响应 (201):**
 ```json
 {
   "id": "T002",
-  "title": "Implement CardViewModel",
+  "title": "实现 CardViewModel",
   ...
 }
 ```
 
-**Error Response (400):**
+**错误响应 (400):**
 ```json
 {
-  "error": "Task id and title are required"
+  "error": "任务 id 和 title 为必填项"
 }
 ```
 
-#### Update Task Status
+#### 更新任务状态
 
 ```http
 PUT /api/tasks/:id/status
@@ -159,66 +159,66 @@ Content-Type: application/json
 {
   "status": "completed",
   "changedBy": "qoder",
-  "reason": "All acceptance criteria met"
+  "reason": "所有验收标准已满足"
 }
 ```
 
-**Response:**
+**响应:**
 ```json
 {
   "id": "T001",
   "status": "completed",
   "statusHistory": [
-    ...previous history,
-    { "status": "completed", "changedAt": "2024-01-15T10:00:00.000Z", "changedBy": "qoder", "reason": "All acceptance criteria met" }
+    ...历史记录,
+    { "status": "completed", "changedAt": "2024-01-15T10:00:00.000Z", "changedBy": "qoder", "reason": "所有验收标准已满足" }
   ]
 }
 ```
 
 ---
 
-### Agents
+### 代理
 
-#### List All Agents
+#### 获取所有代理
 
 ```http
 GET /api/agents
 ```
 
-**Response:**
+**响应:**
 ```json
 [
   {
     "id": "qoder",
     "name": "Qoder",
-    "description": "Native code expert for Objective-C analysis",
+    "description": "Objective-C 分析的原生代码专家",
     "status": "online",
     "workingDirectory": "/path/to/native-repo",
     "skills": [
-      { "id": "analyze-dependencies", "name": "Analyze Dependencies", "tags": ["analysis", "objc"] },
-      { "id": "refactor-code", "name": "Refactor Code", "tags": ["refactoring", "objc"] }
+      { "id": "analyze-dependencies", "name": "分析依赖", "tags": ["analysis", "objc"] },
+      { "id": "refactor-code", "name": "重构代码", "tags": ["refactoring", "objc"] }
     ],
     "currentTask": "T001"
   }
 ]
 ```
 
-#### Get Agent by ID
+#### 根据 ID 获取代理
 
 ```http
 GET /api/agents/:id
 ```
 
-**Response:** Single agent object (see above)
+**响应:** 单个代理对象（见上）
 
-**Error Response (404):**
+**错误响应 (404):**
 ```json
 {
-  "error": "Agent not found"
+  "error": "代理未找到"
 }
 ```
 
-#### Register Agent
+#### 注册代理
 
 ```http
 POST /api/agents
@@ -227,16 +227,16 @@ Content-Type: application/json
 {
   "id": "codex",
   "name": "Codex",
-  "description": "Swift/SwiftUI implementation expert",
+  "description": "Swift/SwiftUI 实现专家",
   "status": "offline",
   "workingDirectory": "/path/to/new-repo",
   "skills": [
-    { "id": "swift-impl", "name": "Swift Implementation", "tags": ["swift", "swiftui"] }
+    { "id": "swift-impl", "name": "Swift 实现", "tags": ["swift", "swiftui"] }
   ]
 }
 ```
 
-**Response (201):**
+**响应 (201):**
 ```json
 {
   "id": "codex",
@@ -245,49 +245,49 @@ Content-Type: application/json
 }
 ```
 
-**Error Response (400):**
+**错误响应 (400):**
 ```json
 {
-  "error": "Agent id and name are required"
+  "error": "代理 id 和 name 为必填项"
 }
 ```
 
-#### Delete Agent
+#### 删除代理
 
 ```http
 DELETE /api/agents/:id
 ```
 
-**Response (204):** No content
+**响应 (204):** 无内容
 
-**Error Response (404):**
+**错误响应 (404):**
 ```json
 {
-  "error": "Agent not found"
+  "error": "代理未找到"
 }
 ```
 
 ---
 
-### Logs
+### 日志
 
-#### Query Logs
+#### 查询日志
 
 ```http
 GET /api/logs?level=info&agentId=qoder&taskId=T001&since=2024-01-15T00:00:00Z
 ```
 
-**Query Parameters:**
+**查询参数:**
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `level` | string | Filter by log level: `debug`, `info`, `warn`, `error` |
-| `agentId` | string | Filter by agent ID |
-| `taskId` | string | Filter by task ID |
-| `since` | ISO 8601 | Logs after this timestamp |
-| `until` | ISO 8601 | Logs before this timestamp |
+| 参数 | 类型 | 描述 |
+|------|------|------|
+| `level` | string | 按日志级别过滤: `debug`, `info`, `warn`, `error` |
+| `agentId` | string | 按代理 ID 过滤 |
+| `taskId` | string | 按任务 ID 过滤 |
+| `since` | ISO 8601 | 此时间戳之后的日志 |
+| `until` | ISO 8601 | 此时间戳之前的日志 |
 
-**Response:**
+**响应:**
 ```json
 [
   {
@@ -295,148 +295,148 @@ GET /api/logs?level=info&agentId=qoder&taskId=T001&since=2024-01-15T00:00:00Z
     "level": "info",
     "agentId": "qoder",
     "taskId": "T001",
-    "message": "Started analyzing dependencies",
+    "message": "开始分析依赖",
     "metadata": { "files": 5 }
   }
 ]
 ```
 
-#### Get Recent Logs
+#### 获取最近日志
 
 ```http
 GET /api/logs/recent?limit=100
 ```
 
-**Response:** Array of log entries (most recent first)
+**响应:** 日志条目数组（最近的在前）
 
-#### Stream Logs (SSE)
+#### 流式日志 (SSE)
 
 ```http
 GET /api/logs/stream
 Accept: text/event-stream
 ```
 
-**Response:** Server-Sent Events stream
+**响应:** Server-Sent Events 流
 
 ```
 : connected
 
-data: {"timestamp":"2024-01-15T10:00:00.000Z","level":"info","message":"Task started"}
+data: {"timestamp":"2024-01-15T10:00:00.000Z","level":"info","message":"任务已开始"}
 
 : keepalive
 
-data: {"timestamp":"2024-01-15T10:01:00.000Z","level":"info","message":"Lock acquired"}
+data: {"timestamp":"2024-01-15T10:01:00.000Z","level":"info","message":"锁已获取"}
 ```
 
 ---
 
-## Error Codes
+## 错误码
 
-| Status Code | Description |
-|-------------|-------------|
-| `200` | Success |
-| `201` | Created |
-| `204` | No Content (successful deletion) |
-| `400` | Bad Request - Missing or invalid parameters |
-| `404` | Not Found - Resource does not exist |
-| `500` | Internal Server Error |
+| 状态码 | 描述 |
+|--------|------|
+| `200` | 成功 |
+| `201` | 已创建 |
+| `204` | 无内容（删除成功） |
+| `400` | 错误请求 - 缺少或无效参数 |
+| `404` | 未找到 - 资源不存在 |
+| `500` | 服务器内部错误 |
 
-## Error Response Format
+## 错误响应格式
 
-All error responses follow this format:
+所有错误响应遵循此格式：
 
 ```json
 {
-  "error": "Error message describing the issue"
+  "error": "描述问题的错误信息"
 }
 ```
 
-## Rate Limiting
+## 速率限制
 
-API endpoints are rate-limited to prevent abuse:
+API 端点有速率限制以防止滥用：
 
-| Endpoint Type | Rate Limit |
-|---------------|------------|
-| Read operations | 100 requests/minute |
-| Write operations | 30 requests/minute |
-| Log streaming | 5 concurrent connections |
+| 端点类型 | 速率限制 |
+|---------|---------|
+| 读操作 | 100 请求/分钟 |
+| 写操作 | 30 请求/分钟 |
+| 日志流 | 5 个并发连接 |
 
-## WebSocket Events
+## WebSocket 事件
 
-For real-time updates, connect to the WebSocket endpoint:
+对于实时更新，连接到 WebSocket 端点：
 
 ```javascript
 const ws = new WebSocket('ws://localhost:3000/ws');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
-  // Handle event
+  // 处理事件
 };
 ```
 
-**Event Types:**
+**事件类型:**
 
-| Event | Description |
-|-------|-------------|
-| `task:created` | New task created |
-| `task:updated` | Task status changed |
-| `agent:status` | Agent status changed |
-| `lock:acquired` | File lock acquired |
-| `lock:released` | File lock released |
+| 事件 | 描述 |
+|------|------|
+| `task:created` | 新任务已创建 |
+| `task:updated` | 任务状态已更改 |
+| `agent:status` | 代理状态已更改 |
+| `lock:acquired` | 文件锁已获取 |
+| `lock:released` | 文件锁已释放 |
 
 ---
 
-## Programmatic API
+## 编程 API
 
 ### ACPClientAdapter
 
-Communicate with ACP-compatible AI agents (opencode, claude code):
+与 ACP 兼容的 AI 代理（opencode、claude code）通信：
 
 ```typescript
 import { ACPClientAdapter } from '@agent-orchestrator/adapter';
 
 const adapter = new ACPClientAdapter({
-  name: 'opencode',       // Agent name
-  command: 'opencode',    // Command to spawn
-  args: ['acp'],          // Command arguments
-  cwd: '/path/to/project', // Working directory
-  timeout: 90000          // Timeout in ms (default: 300000)
+  name: 'opencode',       // 代理名称
+  command: 'opencode',    // 启动命令
+  args: ['acp'],          // 命令参数
+  cwd: '/path/to/project', // 工作目录
+  timeout: 90000          // 超时时间（毫秒），默认: 300000
 });
 ```
 
 #### execute(context)
 
-Execute a task with the agent:
+执行任务：
 
 ```typescript
 const result = await adapter.execute({
-  task: 'Add a multiply function to math.js',
+  task: '在 math.js 中添加一个乘法函数',
   context: {}
 });
 
-// Result structure
+// 返回结果结构
 interface AdapterResult {
-  output: string;           // Agent's text output
-  artifacts?: string[];     // Created files/paths
-  error?: string;           // Error message if failed
-  locksAcquired?: string[]; // Files locked during execution
-  locksReleased?: string[]; // Files released during execution
-  toolCalls?: ToolCallRecord[]; // Tool calls made by agent
+  output: string;           // 代理的文本输出
+  artifacts?: string[];     // 创建的文件/路径
+  error?: string;           // 错误信息
+  locksAcquired?: string[]; // 执行期间获取的锁
+  locksReleased?: string[]; // 执行期间释放的锁
+  toolCalls?: ToolCallRecord[]; // 代理发起的工具调用
 }
 ```
 
 #### getStatus()
 
-Check if the agent is available:
+检查代理是否可用：
 
 ```typescript
 const status = await adapter.getStatus();
-// { online: true } or { online: false, error: "..." }
+// { online: true } 或 { online: false, error: "..." }
 ```
 
 #### cancel()
 
-Cancel any running execution:
+取消正在执行的任务：
 
 ```typescript
 await adapter.cancel();
@@ -444,12 +444,12 @@ await adapter.cancel();
 
 ### ACPConnectionPool
 
-Manage shared connections for concurrent agents:
+管理并发代理的共享连接：
 
 ```typescript
 import { ACPConnectionPool, ACPClientAdapter } from '@agent-orchestrator/adapter';
 
-const pool = new ACPConnectionPool(300000); // Default timeout
+const pool = new ACPConnectionPool(300000); // 默认超时
 
 const adapter1 = new ACPClientAdapter({
   name: 'agent1',
@@ -465,33 +465,33 @@ const adapter2 = new ACPClientAdapter({
   cwd: '/project'
 }, pool);
 
-// Run concurrently - connections are reused when possible
+// 并发执行 - 尽可能复用连接
 await Promise.all([
-  adapter1.execute({ task: 'Task 1', context: {} }),
-  adapter2.execute({ task: 'Task 2', context: {} })
+  adapter1.execute({ task: '任务 1', context: {} }),
+  adapter2.execute({ task: '任务 2', context: {} })
 ]);
 
 await pool.closeAll();
 ```
 
-### Lock Protocol
+### 锁协议
 
-The adapter automatically injects lock protocol instructions into prompts. Agents are instructed to:
+适配器自动在提示中注入锁协议指令。代理被指示：
 
-1. **Declare locks** before modifying files
-2. **Make changes** to the declared files
-3. **Release locks** after completing modifications
+1. **声明锁** - 在修改文件之前
+2. **进行更改** - 在已声明的文件上
+3. **释放锁** - 完成修改之后
 
 ```typescript
 import { LOCK_PROTOCOL_PROMPT } from '@agent-orchestrator/adapter';
 
 console.log(LOCK_PROTOCOL_PROMPT);
-// Outputs the lock protocol instructions
+// 输出锁协议指令
 ```
 
-### Supported Agents
+### 支持的代理
 
-| Agent | Command | Protocol | Status |
-|-------|---------|----------|--------|
-| opencode | `opencode acp` | ACP v1 | ✅ Verified |
-| claude code | `claude acp` | ACP v1 | 🧪 Experimental |
+| 代理 | 命令 | 协议 | 状态 |
+|------|------|------|------|
+| opencode | `opencode acp` | ACP v1 | ✅ 已验证 |
+| claude code | `claude acp` | ACP v1 | 🧪 实验性 |

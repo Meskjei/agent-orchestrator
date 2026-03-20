@@ -1,27 +1,27 @@
 # Agent Orchestrator
 
-Multi-Agent Collaboration System for AI-powered software development.
+AI 软件开发多代理协作系统。
 
-## Features
+## 功能特性
 
-- 🤖 Multi-Agent Orchestration
-- 🧠 Shared Brain
-- 🔒 Conflict Prevention
-- 📊 Dashboard (Web + TUI)
-- 📝 Decision Logging
-- 🔌 ACP Protocol Support (opencode, claude code)
+- 🤖 多代理编排
+- 🧠 共享知识库
+- 🔒 冲突预防
+- 📊 仪表板（Web + TUI）
+- 📝 决策日志
+- 🔌 ACP 协议支持（opencode、claude code）
 
-## Packages
+## 软件包
 
-| Package | Description |
-|---------|-------------|
-| @agent-orchestrator/core | Core types, brain, locks, conflict detection |
-| @agent-orchestrator/orchestrator | Orchestration skills |
-| @agent-orchestrator/adapter | Agent adapters (CLI, ACP) |
-| @agent-orchestrator/cli | CLI commands and TUI |
-| @agent-orchestrator/web | Web dashboard and API |
+| 软件包 | 描述 |
+|--------|------|
+| @agent-orchestrator/core | 核心类型、知识库、锁、冲突检测 |
+| @agent-orchestrator/orchestrator | 编排技能 |
+| @agent-orchestrator/adapter | 代理适配器（CLI、ACP） |
+| @agent-orchestrator/cli | CLI 命令和 TUI |
+| @agent-orchestrator/web | Web 仪表板和 API |
 
-## Quick Start
+## 快速开始
 
 ```bash
 npm install
@@ -29,9 +29,9 @@ npm run build
 npm test
 ```
 
-## ACP Client Adapter
+## ACP 客户端适配器
 
-Communicate with real AI agents via Agent Client Protocol:
+通过 Agent Client Protocol 与真实 AI 代理通信：
 
 ```typescript
 import { ACPClientAdapter } from '@agent-orchestrator/adapter';
@@ -45,40 +45,40 @@ const adapter = new ACPClientAdapter({
 });
 
 const result = await adapter.execute({
-  task: 'Add a multiply function to math.js',
+  task: '在 math.js 中添加一个乘法函数',
   context: {}
 });
 
 console.log(result.output);
-console.log('Locks acquired:', result.locksAcquired);
+console.log('获取的锁:', result.locksAcquired);
 ```
 
-### Supported Agents
+### 支持的代理
 
-| Agent | Command | Status |
-|-------|---------|--------|
-| opencode | `opencode acp` | ✅ Verified |
-| claude code | `claude acp` | 🧪 Experimental |
+| 代理 | 命令 | 状态 |
+|------|------|------|
+| opencode | `opencode acp` | ✅ 已验证 |
+| claude code | `claude acp` | 🧪 实验性 |
 
-## Documentation
+## 文档
 
-- [Getting Started](docs/getting-started.md)
-- [Architecture](docs/architecture.md)
-- [API Reference](docs/api-reference.md)
+- [快速入门](docs/getting-started.md)
+- [架构设计](docs/architecture.md)
+- [API 参考](docs/api-reference.md)
 
-## Testing
+## 测试
 
 ```bash
-# Unit tests
+# 单元测试
 npm test
 
-# E2E tests (requires opencode installed)
+# E2E 测试（需要安装 opencode）
 npm run test:e2e
 
-# ACP integration tests
+# ACP 集成测试
 npm run test:acp
 ```
 
-## License
+## 许可证
 
 MIT

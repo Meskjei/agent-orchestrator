@@ -1,13 +1,13 @@
-# Architecture
+# 架构设计
 
-This document describes the architecture of the Agent Orchestrator system.
+本文档描述 Agent Orchestrator 系统的架构设计。
 
-## System Overview
+## 系统概览
 
 ```
                                      ┌─────────────────────────────────┐
-                                     │         Human User              │
-                                     │  (Task Publisher / Approver)    │
+                                     │         人类用户                │
+                                     │  (任务发布者 / 审批者)          │
                                      └───────────────┬─────────────────┘
                                                      │
                                ┌─────────────────────┼─────────────────────┐
@@ -15,17 +15,17 @@ This document describes the architecture of the Agent Orchestrator system.
                                ▼                     ▼                     ▼
                         ┌──────────┐          ┌──────────┐         ┌──────────┐
                         │   CLI    │          │   Web    │         │   API    │
-                        │Interface │          │Dashboard │         │ Server   │
+                        │  界面    │          │  仪表板  │         │  服务器  │
                         └────┬─────┘          └────┬─────┘         └────┬─────┘
                              │                     │                    │
                              └─────────────────────┼────────────────────┘
                                                    │
                                                    ▼
                                ┌───────────────────────────────────────┐
-                               │         Orchestrator Agent            │
+                               │         编排代理 (Orchestrator)        │
                                │                                       │
                                │  ┌─────────────────────────────────┐  │
-                               │  │       Orchestrator Skills       │  │
+                               │  │       编排技能 (Skills)          │  │
                                │  │  - TaskDecompositionSkill       │  │
                                │  │  - AgentDispatchSkill           │  │
                                │  │  - LockManagementSkill          │  │
@@ -38,173 +38,173 @@ This document describes the architecture of the Agent Orchestrator system.
                                │                   │                   │
                                ▼                   ▼                   ▼
                      ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-                     │  Project Brain  │  │  Lock Manager   │  │  Agent Adapters │
-                     │  (Shared State) │  │  (Lock Service) │  │  (CLI/API Wraps)│
+                     │  项目知识库      │  │  锁管理器       │  │  代理适配器      │
+                     │  (共享状态)      │  │  (锁服务)       │  │  (CLI/API封装)  │
                      └─────────────────┘  └─────────────────┘  └─────────────────┘
 ```
 
-## Core Components
+## 核心组件
 
-### Project Brain
+### 项目知识库 (Project Brain)
 
-The **Project Brain** is the shared cognition layer that maintains:
+**项目知识库**是维护共享认知的层级，包含：
 
-- **Goal**: Project objectives and success criteria
-- **Agents**: Registered agents and their capabilities
-- **Tasks**: Hierarchical task tree with status tracking
-- **Context**: Shared code snippets, outputs, and pending questions
-- **Decisions**: Record of all decisions made during the project
-- **Locks**: Active file locks and history
+- **目标 (Goal)**：项目目标和成功标准
+- **代理 (Agents)**：已注册的代理及其能力
+- **任务 (Tasks)**：带有状态跟踪的层次化任务树
+- **上下文 (Context)**：共享代码片段、输出和待处理问题
+- **决策 (Decisions)**：项目期间做出的所有决策记录
+- **锁 (Locks)**：活动文件锁和历史记录
 
-### Lock Manager
+### 锁管理器 (Lock Manager)
 
-The **Lock Manager** prevents concurrent modification conflicts:
+**锁管理器**防止并发修改冲突：
 
-- File-level and region-level locking
-- Exclusive and shared lock types
-- Automatic lock expiration (30-minute default)
-- Waiting queue for lock requests
+- 文件级和区域级锁定
+- 独占和共享锁类型
+- 自动锁过期（默认 30 分钟）
+- 锁请求等待队列
 
-### Agent Adapters
+### 代理适配器 (Agent Adapters)
 
-**Agent Adapters** wrap third-party agents (CLI tools, APIs) to provide a unified interface:
+**代理适配器**封装第三方代理（CLI 工具、API）以提供统一接口：
 
-- **CliAdapter**: Wrap CLI-based agents with stdin/stdout communication
-- **ACPClientAdapter**: Communicate with ACP-compatible agents (opencode, claude code) via JSON-RPC
-- Input transformation (context → agent prompt)
-- Output parsing (agent response → structured output)
-- Lock protocol enforcement via prompt injection
+- **CliAdapter**：封装基于 CLI 的代理，通过 stdin/stdout 通信
+- **ACPClientAdapter**：通过 JSON-RPC 与 ACP 兼容代理（opencode、claude code）通信
+- 输入转换（上下文 → 代理提示）
+- 输出解析（代理响应 → 结构化输出）
+- 通过提示注入强制执行锁协议
 
-#### ACP Protocol
+#### ACP 协议
 
-The ACP (Agent Client Protocol) adapter enables communication with real AI agents:
+ACP（Agent Client Protocol）适配器实现与真实 AI 代理的通信：
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                    Agent Orchestrator                        │
 │                                                              │
 │  ┌─────────────────┐    ┌─────────────────────────────────┐  │
-│  │ ACPClientAdapter │───►│  opencode acp (subprocess)      │  │
+│  │ ACPClientAdapter │───►│  opencode acp (子进程)          │  │
 │  │                 │    │  JSON-RPC over stdio             │  │
-│  │ - initialize()  │    │  - Session management            │  │
-│  │ - newSession()  │    │  - Prompt execution              │  │
-│  │ - prompt()      │    │  - Tool call handling            │  │
+│  │ - initialize()  │    │  - 会话管理                      │  │
+│  │ - newSession()  │    │  - 提示执行                      │  │
+│  │ - prompt()      │    │  - 工具调用处理                  │  │
 │  └─────────────────┘    └─────────────────────────────────┘  │
 │                                                              │
-│  Features:                                                   │
-│  - Lock protocol prompt injection                            │
-│  - Timeout handling                                          │
-│  - Concurrent agent support                                   │
-│  - Tool call tracking                                        │
+│  功能:                                                       │
+│  - 锁协议提示注入                                            │
+│  - 超时处理                                                  │
+│  - 并发代理支持                                              │
+│  - 工具调用跟踪                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Packages
+## 软件包
 
-The system is organized into five packages:
+系统组织为五个软件包：
 
 ### `@agent-orchestrator/core`
 
-Core types and utilities:
+核心类型和工具：
 
-| Module | Purpose |
-|--------|---------|
-| `types` | Type definitions for Task, Agent, Lock, Brain |
-| `brain` | ProjectBrain implementation with persistence |
-| `lock/manager` | Lock acquisition, release, and query |
-| `conflict/detector` | Path, region, and semantic conflict detection |
-| `task/state-machine` | Task status transitions |
-| `logging` | Structured logging with filtering |
+| 模块 | 用途 |
+|------|------|
+| `types` | Task、Agent、Lock、Brain 类型定义 |
+| `brain` | 带持久化的 ProjectBrain 实现 |
+| `lock/manager` | 锁获取、释放和查询 |
+| `conflict/detector` | 路径、区域和语义冲突检测 |
+| `task/state-machine` | 任务状态转换 |
+| `logging` | 带过滤的结构化日志 |
 
 ### `@agent-orchestrator/orchestrator`
 
-Orchestration skills:
+编排技能：
 
-| Skill | Purpose |
-|-------|---------|
-| `TaskDecompositionSkill` | Break down complex tasks into subtasks |
-| `AgentDispatchSkill` | Dispatch tasks to agents with lock handling |
-| `LockManagementSkill` | Manage file locks for agents |
-| `TaskReviewSkill` | Review task outputs against specifications |
-| `DecisionLogSkill` | Record and query project decisions |
+| 技能 | 用途 |
+|------|------|
+| `TaskDecompositionSkill` | 将复杂任务分解为子任务 |
+| `AgentDispatchSkill` | 将任务分派给代理并处理锁 |
+| `LockManagementSkill` | 为代理管理文件锁 |
+| `TaskReviewSkill` | 根据规范审查任务输出 |
+| `DecisionLogSkill` | 记录和查询项目决策 |
 
 ### `@agent-orchestrator/adapter`
 
-Agent adapter infrastructure:
+代理适配器基础设施：
 
-| Module | Purpose |
-|--------|---------|
-| `CliAdapter` | Wrap CLI-based agents |
-| `ACPClientAdapter` | Communicate with ACP-compatible agents (opencode, claude code) |
-| `ACPConnectionPool` | Manage reusable subprocess connections |
-| `Transformer` | Transform input/output for agents |
-| `LockInterceptor` | Parse and enforce lock protocol in agent output |
-| `prompts/lock-protocol` | Generate lock protocol prompts |
-| `acp/tools/lock-tools` | MCP lock tools for agent integration |
+| 模块 | 用途 |
+|------|------|
+| `CliAdapter` | 封装基于 CLI 的代理 |
+| `ACPClientAdapter` | 与 ACP 兼容代理（opencode、claude code）通信 |
+| `ACPConnectionPool` | 管理可复用的子进程连接 |
+| `Transformer` | 为代理转换输入/输出 |
+| `LockInterceptor` | 解析并强制执行代理输出中的锁协议 |
+| `prompts/lock-protocol` | 生成锁协议提示 |
+| `acp/tools/lock-tools` | 用于代理集成的 MCP 锁工具 |
 
 ### `@agent-orchestrator/cli`
 
-Command-line interface:
+命令行界面：
 
-| Command | Purpose |
-|---------|---------|
-| `init` | Initialize project structure |
-| `agent add/list` | Manage agents |
-| `task create` | Create tasks |
-| `start` | Start orchestration |
-| `tui` | Launch terminal UI |
+| 命令 | 用途 |
+|------|------|
+| `init` | 初始化项目结构 |
+| `agent add/list` | 管理代理 |
+| `task create` | 创建任务 |
+| `start` | 启动编排 |
+| `tui` | 启动终端 UI |
 
 ### `@agent-orchestrator/web`
 
-Web dashboard server:
+Web 仪表板服务器：
 
-| Route | Purpose |
-|-------|---------|
-| `/api/tasks` | Task CRUD operations |
-| `/api/agents` | Agent management |
-| `/api/status` | Project status |
-| `/api/logs` | Log streaming (SSE) |
+| 路由 | 用途 |
+|------|------|
+| `/api/tasks` | 任务 CRUD 操作 |
+| `/api/agents` | 代理管理 |
+| `/api/status` | 项目状态 |
+| `/api/logs` | 日志流 (SSE) |
 
-## Skills
+## 技能详解
 
 ### TaskDecompositionSkill
 
-Decomposes complex tasks into manageable subtasks:
+将复杂任务分解为可管理的子任务：
 
 ```typescript
 const result = await skill.execute({
-  taskDescription: "Migrate CardTableViewCell to SwiftUI",
-  goal: "Complete migration preserving functionality",
-  constraints: ["No breaking changes", "Maintain tests"],
+  taskDescription: "将 CardTableViewCell 迁移到 SwiftUI",
+  goal: "完成迁移并保持功能",
+  constraints: ["无破坏性更改", "保持测试通过"],
   availableAgents: brain.agents
 });
-// Returns: { subtasks, dependencies, assignments }
+// 返回: { subtasks, dependencies, assignments }
 ```
 
 ### AgentDispatchSkill
 
-Dispatches tasks to agents with automatic lock management:
+将任务分派给代理并自动管理锁：
 
 ```typescript
 const result = await skill.execute({
   agentId: "qoder",
   task: taskNode,
   context: {
-    projectGoal: "Migrate to SwiftUI",
-    agentRole: "iOS Developer",
+    projectGoal: "迁移到 SwiftUI",
+    agentRole: "iOS 开发者",
     relevantCodeSnippets: [...],
     currentLocks: [...]
   }
 });
-// Returns: { status, output, locksAcquired, locksReleased }
+// 返回: { status, output, locksAcquired, locksReleased }
 ```
 
 ### LockManagementSkill
 
-Manages file locks for conflict prevention:
+管理文件锁以防止冲突：
 
 ```typescript
-// Acquire locks
+// 获取锁
 await skill.execute({
   action: 'acquire',
   agentId: 'codex',
@@ -212,7 +212,7 @@ await skill.execute({
   files: ['CardViewModel.swift']
 });
 
-// Release locks
+// 释放锁
 await skill.execute({
   action: 'release',
   agentId: 'codex',
@@ -222,116 +222,123 @@ await skill.execute({
 
 ### TaskReviewSkill
 
-Reviews task outputs for specification compliance:
+审查任务输出是否符合规范：
 
 ```typescript
 const report = await skill.execute({
   task: taskNode,
   output: { summary, files, artifacts },
-  reviewType: 'both'  // spec + quality
+  reviewType: 'both'  // 规范 + 质量
 });
-// Returns: { passed, specReview, qualityReview, requiresHumanReview }
+// 返回: { passed, specReview, qualityReview, requiresHumanReview }
 ```
 
 ### DecisionLogSkill
 
-Records and queries project decisions:
+记录和查询项目决策：
 
 ```typescript
 await skill.execute({
   action: 'record',
   decision: {
-    decision: "Use SwiftUI for UI layer",
+    decision: "使用 SwiftUI 作为 UI 层",
     decider: "human",
-    context: "Architecture review",
+    context: "架构评审",
     alternatives: ["UIKit", "React Native"],
-    impact: ["All UI components", "Testing strategy"]
+    impact: ["所有 UI 组件", "测试策略"]
   }
 });
 ```
 
-## Lock Mechanism
+## 锁机制
 
-### How It Works
+### 工作原理
 
-1. **Declaration**: Agent declares intent to modify files via `[DECLARE]` in output
-2. **Acquisition**: Lock manager checks for conflicts and grants/denies
-3. **Execution**: Agent proceeds with modifications if lock granted
-4. **Release**: Agent releases locks via `[RELEASE]` when done
+1. **声明**：代理通过输出中的 `[DECLARE]` 声明修改文件的意图
+2. **获取**：锁管理器检查冲突并授予/拒绝
+3. **执行**：如果获得锁，代理继续修改
+4. **释放**：代理完成后通过 `[RELEASE]` 释放锁
 
-### Lock States
+### 锁状态
 
 ```
-┌─────────────┐     Acquire      ┌─────────────┐
-│   Pending   │ ──────────────►  │   Active    │
+┌─────────────┐     获取        ┌─────────────┐
+│   等待中    │ ──────────────►  │   活跃      │
 └─────────────┘                  └──────┬──────┘
                                         │
-                       Release/Expire   │
+                       释放/过期        │
                               │         │
                               ▼         ▼
                         ┌─────────────┐
-                        │  Released   │
+                        │   已释放    │
                         └─────────────┘
 ```
 
-### Conflict Detection Layers
+### 冲突检测层级
 
-| Layer | Detection | Resolution |
-|-------|-----------|------------|
-| Path | Same file modification | Lock blocks access |
-| Region | Overlapping code regions | Region lock or merge |
-| Semantic | Logical dependencies | Alert for human review |
+| 层级 | 检测方式 | 解决方案 |
+|------|---------|---------|
+| 路径 | 同文件修改 | 锁阻止访问 |
+| 区域 | 重叠代码区域 | 区域锁或合并 |
+| 语义 | 逻辑依赖 | 警报人工审查 |
 
-## Task State Machine
+## 任务状态机
 
 ```
                 ┌─────────────┐
                 │   pending   │
+                │   等待中    │
                 └──────┬──────┘
-                       │ Dependencies met
+                       │ 依赖满足
                        ▼
                 ┌─────────────┐
       ┌────────│    ready    │◄───────┐
+      │        │    就绪     │        │
       │        └──────┬──────┘        │
-      │               │ Assign        │ Reassign
+      │               │ 分配           │ 重新分配
       │               ▼               │
       │        ┌─────────────┐        │
-      │        │   assigned  │────────┘
+      │        │  assigned   │────────┘
+      │        │   已分配    │
       │        └──────┬──────┘
-      │               │ Start
+      │               │ 开始
       │               ▼
       │        ┌─────────────┐
-      │        │  executing  │◄───────┐
+      │        │ executing   │◄───────┐
+      │        │   执行中    │        │
       │        └──────┬──────┘        │
-      │               │ Complete      │ Needs info
+      │               │ 完成          │ 需要信息
       │               ▼               │
       │        ┌─────────────┐        │
       │        │  reviewing  │────────┘
+      │        │   审查中    │
       │        └──────┬──────┘
       │               │
       │       ┌───────┴───────┐
       │       ▼               ▼
       │ ┌──────────┐   ┌───────────┐
       │ │ revision │   │ completed │
+      │ │  修订    │   │   已完成  │
       │ └────┬─────┘   └───────────┘
-      │      │ Resubmit
+      │      │ 重新提交
       │      └──────────────► reviewing
       │
-      │ Block
+      │ 阻塞
       ▼
  ┌─────────────┐
  │   blocked   │
+ │   已阻塞    │
  └─────────────┘
 ```
 
-## Data Persistence
+## 数据持久化
 
-All project state is persisted to `.agent-orch/brain.json`:
+所有项目状态持久化到 `.agent-orch/brain.json`：
 
 ```json
 {
   "id": "uuid",
-  "name": "Project Name",
+  "name": "项目名称",
   "version": "1.0.0",
   "goal": { "description": "...", "successCriteria": [], "constraints": [] },
   "agents": [...],

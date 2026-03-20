@@ -1,137 +1,137 @@
-# Getting Started
+# 快速入门
 
-This guide will help you get up and running with Agent Orchestrator.
+本指南帮助您快速上手 Agent Orchestrator。
 
-## Installation
+## 安装
 
-### Prerequisites
+### 前置要求
 
 - Node.js 18+
 - npm 10+
 
-### Install Dependencies
+### 安装依赖
 
 ```bash
-# Clone the repository
+# 克隆仓库
 git clone <repository-url>
 cd Agent-Communication
 
-# Install dependencies
+# 安装依赖
 npm install
 
-# Build all packages
+# 构建所有软件包
 npm run build
 ```
 
-### Global CLI (Optional)
+### 全局 CLI（可选）
 
 ```bash
-# Link CLI globally
+# 全局链接 CLI
 cd packages/cli
 npm link
 ```
 
-## Quick Start
+## 快速开始
 
-### 1. Initialize a Project
+### 1. 初始化项目
 
 ```bash
-# Navigate to your project directory
+# 进入项目目录
 cd /path/to/your-project
 
-# Initialize Agent Orchestrator
+# 初始化 Agent Orchestrator
 agent-orch init
 ```
 
-This creates:
-- `.agent-orch/config.yaml` - Project configuration
-- `.agent-orch/brain.json` - Shared project state
-- `.agent-orch/agents/` - Agent configurations directory
+这将创建：
+- `.agent-orch/config.yaml` - 项目配置
+- `.agent-orch/brain.json` - 共享项目状态
+- `.agent-orch/agents/` - 代理配置目录
 
-### 2. Register Agents
+### 2. 注册代理
 
 ```bash
-# Add an agent interactively
+# 交互式添加代理
 agent-orch agent add qoder
 
-# Add an agent from config file
+# 从配置文件添加代理
 agent-orch agent add codex --config ./codex-config.yaml
 ```
 
-### 3. Create Tasks
+### 3. 创建任务
 
 ```bash
-# Create a task interactively
+# 交互式创建任务
 agent-orch task create
 ```
 
-### 4. Start Orchestration
+### 4. 启动编排
 
 ```bash
-# Start the orchestration system
+# 启动编排系统
 agent-orch start
 
-# Launch the Terminal UI
+# 启动终端 UI
 agent-orch tui
 ```
 
-## CLI Commands
+## CLI 命令
 
-| Command | Description |
-|---------|-------------|
-| `agent-orch init` | Initialize project with `.agent-orch/` directory |
-| `agent-orch agent add <name>` | Register a new agent |
-| `agent-orch agent add <name> -c <path>` | Register agent from config file |
-| `agent-orch agent list` | List all registered agents |
-| `agent-orch task create` | Create a new task |
-| `agent-orch start` | Start orchestration |
-| `agent-orch tui` | Launch terminal user interface |
-| `agent-orch web` | Start web dashboard |
+| 命令 | 描述 |
+|------|------|
+| `agent-orch init` | 初始化项目，创建 `.agent-orch/` 目录 |
+| `agent-orch agent add <name>` | 注册新代理 |
+| `agent-orch agent add <name> -c <path>` | 从配置文件注册代理 |
+| `agent-orch agent list` | 列出所有已注册代理 |
+| `agent-orch task create` | 创建新任务 |
+| `agent-orch start` | 启动编排 |
+| `agent-orch tui` | 启动终端用户界面 |
+| `agent-orch web` | 启动 Web 仪表板 |
 
-## Web Dashboard
+## Web 仪表板
 
-Start the web dashboard to monitor and manage your multi-agent collaboration:
+启动 Web 仪表板来监控和管理多代理协作：
 
 ```bash
 agent-orch web
 ```
 
-The dashboard provides:
+仪表板提供：
 
-- **Project Overview**: Goals, progress, and key metrics
-- **Task Kanban**: Visual task board with drag-and-drop support
-- **Agent Status**: Real-time agent status and activity
-- **File Locks**: Visual representation of locked files
-- **Decision Log**: Timeline of all decisions made
-- **Log Viewer**: Real-time log streaming
+- **项目概览**：目标、进度和关键指标
+- **任务看板**：支持拖拽的可视化任务板
+- **代理状态**：实时代理状态和活动
+- **文件锁**：锁定文件的可视化展示
+- **决策日志**：所有决策的时间线
+- **日志查看器**：实时日志流
 
-### Dashboard Features
+### 仪表板功能
 
-| Feature | Description |
-|---------|-------------|
-| Task Board | Kanban-style view of all tasks by status |
-| Agent Monitor | See which agents are online, busy, or offline |
-| Lock Visualization | Tree view of files with lock status indicators |
-| Real-time Logs | WebSocket-powered live log streaming |
-| Decision Timeline | Chronological view of project decisions |
+| 功能 | 描述 |
+|------|------|
+| 任务板 | 按状态显示所有任务的看板视图 |
+| 代理监控 | 查看哪些代理在线、忙碌或离线 |
+| 锁可视化 | 带锁状态指示器的文件树视图 |
+| 实时日志 | WebSocket 驱动的实时日志流 |
+| 决策时间线 | 项目决策的按时间顺序视图 |
 
-## Configuration
+## 配置
 
-### Project Config (`config.yaml`)
+### 项目配置 (`config.yaml`)
 
 ```yaml
-name: My Project
-description: Project description
-goal: Complete project objectives
+name: 我的项目
+description: 项目描述
+goal: 完成项目目标
 version: "1.0.0"
 ```
 
-### Agent Config (`agents/<name>.yaml`)
+### 代理配置 (`agents/<name>.yaml`)
 
 ```yaml
 name: agent-name
-description: Agent capabilities description
-type: cli  # or 'api'
+description: 代理能力描述
+type: cli  # 或 'api'
 command: /path/to/agent-binary
 cwd: /path/to/workspace
 skills:
@@ -139,8 +139,53 @@ skills:
   - skill-id-2
 ```
 
-## Next Steps
+## ACP 客户端适配器
 
-- Read the [Architecture Guide](./architecture.md) to understand the system design
-- Check the [API Reference](./api-reference.md) for REST API details
-- Explore the [Native Card Migration Example](../examples/native-card-migration/)
+使用 ACP 协议与真实 AI 代理通信：
+
+```typescript
+import { ACPClientAdapter } from '@agent-orchestrator/adapter';
+
+const adapter = new ACPClientAdapter({
+  name: 'opencode',
+  command: 'opencode',
+  args: ['acp'],
+  cwd: '/path/to/project',
+  timeout: 90000
+});
+
+const result = await adapter.execute({
+  task: '添加一个乘法函数',
+  context: {}
+});
+
+console.log(result.output);
+```
+
+### 安装 opencode
+
+```bash
+npm install -g opencode-ai
+
+# 登录认证
+opencode auth login
+```
+
+## 测试
+
+```bash
+# 单元测试
+npm test
+
+# E2E 测试
+npm run test:e2e
+
+# ACP 集成测试
+npm run test:acp
+```
+
+## 下一步
+
+- 阅读 [架构设计](./architecture.md) 了解系统设计
+- 查看 [API 参考](./api-reference.md) 了解 REST API 详情
+- 探索 [原生卡片迁移示例](../examples/native-card-migration/)
