@@ -794,6 +794,27 @@ git commit -m "feat(adapter): export ACP adapter modules"
 
 ## Chunk 4: E2E Tests with Real Agent
 
+### Task 4.0: Verify E2E Test Environment
+
+- [ ] **Step 1: Check opencode is installed**
+
+```bash
+opencode --version
+```
+
+Expected: Version number displayed
+
+- [ ] **Step 2: Check API key is configured**
+
+```bash
+# Verify ANTHROPIC_API_KEY or similar is set
+echo $ANTHROPIC_API_KEY | head -c 10
+```
+
+Expected: Non-empty output (key prefix)
+
+---
+
 ### Task 4.1: Create E2E Test Helper
 
 **Files:**
@@ -1213,17 +1234,31 @@ git commit -m "docs(adapter): add ACP adapter usage documentation"
 
 ### Task 5.2: Run Full Test Suite
 
-- [ ] **Step 1: Run all tests**
+- [ ] **Step 1: Build project**
 
 ```bash
 npm run build
+```
+
+Expected: Build succeeds
+
+- [ ] **Step 2: Run unit tests**
+
+```bash
 npm test
+```
+
+Expected: All unit tests pass
+
+- [ ] **Step 3: Run E2E tests**
+
+```bash
 npm run test:e2e
 ```
 
-Expected: All tests pass
+Expected: All E2E tests pass
 
-- [ ] **Step 2: Fix any failures if needed**
+- [ ] **Step 4: Fix any failures if needed**
 
 ---
 
@@ -1251,6 +1286,64 @@ Use `gh pr create` to create a PR for review.
 
 ---
 
+### Task 5.4: Create CI Workflow
+
+**Files:**
+- Create: `.github/workflows/test-acp.yml`
+
+- [ ] **Step 1: Create ACP test workflow**
+
+```yaml
+# .github/workflows/test-acp.yml
+name: ACP Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-acp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install opencode
+        run: npm install -g opencode-ai
+      
+      - name: Configure AI provider
+        run: |
+          mkdir -p ~/.config/opencode
+          echo '{"providers":{"anthropic":{"apiKey":"${{ secrets.ANTHROPIC_API_KEY }}"}}}' > ~/.config/opencode/.opencode.json
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build
+        run: npm run build
+      
+      - name: Run ACP tests
+        run: npm run test:acp
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+- [ ] **Step 2: Commit CI workflow**
+
+```bash
+git add .github/workflows/test-acp.yml
+git commit -m "ci: add ACP integration test workflow"
+```
+
+---
+
 ## Summary
 
 **Files Created:**
@@ -1265,6 +1358,8 @@ Use `gh pr create` to create a PR for review.
 - `tests/e2e/helpers/acp-runner.ts`
 - `tests/e2e/acp-scenarios/simple-task.test.ts`
 - `tests/e2e/acp-scenarios/file-modification.test.ts`
+- `tests/e2e/acp-scenarios/concurrent-error.test.ts`
+- `.github/workflows/test-acp.yml`
 
 **Files Modified:**
 - `packages/adapter/src/adapter.ts`
