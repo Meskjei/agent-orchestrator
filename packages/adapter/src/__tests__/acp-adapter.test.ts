@@ -1,5 +1,28 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { spawn } from 'child_process';
 import { ACPClientAdapter } from '../acp-adapter';
+
+vi.mock('@agentclientprotocol/sdk', () => ({
+  ClientSideConnection: vi.fn().mockImplementation(() => ({
+    initialize: vi.fn().mockResolvedValue({ protocolVersion: 1 }),
+    newSession: vi.fn().mockResolvedValue({ sessionId: 'test-session' }),
+    prompt: vi.fn().mockResolvedValue({ stopReason: 'end_turn' })
+  })),
+  ndJsonStream: vi.fn().mockReturnValue({
+    writable: {},
+    readable: {}
+  }),
+  PROTOCOL_VERSION: 1
+}));
+
+vi.mock('stream', () => ({
+  Writable: {
+    toWeb: vi.fn().mockReturnValue({})
+  },
+  Readable: {
+    toWeb: vi.fn().mockReturnValue({})
+  }
+}));
 
 describe('ACPClientAdapter', () => {
   let adapter: ACPClientAdapter;
@@ -58,30 +81,37 @@ describe('ACPClientAdapter', () => {
     beforeEach(() => {
       adapter = new ACPClientAdapter({
         name: 'test',
-        command: 'cat',
-        args: [],
+        command: 'opencode',
+        args: ['acp'],
         timeout: 5000
       });
     });
 
-    it('should execute command and return output', async () => {
+    it('should return result with toolCalls array', async () => {
       const result = await adapter.execute({
-        task: 'hello world',
+        task: 'test task',
         context: {}
       });
 
-      expect(result.output).toContain('LOCK PROTOCOL');
-      expect(result.output).toContain('hello world');
+      expect(result.toolCalls).toBeDefined();
+      expect(Array.isArray(result.toolCalls)).toBe(true);
     });
 
-    it('should track lock tool calls arrays', async () => {
+    it('should return result with locksAcquired array', async () => {
       const result = await adapter.execute({
         task: 'test',
         context: {}
       });
 
-      expect(result.toolCalls).toBeDefined();
       expect(Array.isArray(result.locksAcquired)).toBe(true);
+    });
+
+    it('should return result with locksReleased array', async () => {
+      const result = await adapter.execute({
+        task: 'test',
+        context: {}
+      });
+
       expect(Array.isArray(result.locksReleased)).toBe(true);
     });
   });

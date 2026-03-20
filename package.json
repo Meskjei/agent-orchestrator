@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "test:e2e": "vitest run --config vitest.config.e2e.ts",
+    "test:acp": "vitest run --config vitest.config.e2e.ts tests/e2e/acp-scenarios"
   },
   "devDependencies": {
     "portfinder": "^1.0.38",

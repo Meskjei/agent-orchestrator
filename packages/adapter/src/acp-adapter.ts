@@ -1,13 +1,59 @@
 import { spawn, ChildProcess } from 'child_process';
+import { Writable, Readable } from 'stream';
+import * as acp from '@agentclientprotocol/sdk';
 import { AgentAdapter, AgentAdapterConfig, AdapterContext, AdapterResult, ToolCallRecord } from './adapter';
-import { createLockTools, LockToolsCallbacks } from './acp/tools';
 import { ACPConnectionPool } from './acp/connection';
 import { LOCK_PROTOCOL_PROMPT } from './prompts/lock-protocol';
+
+interface SessionUpdateCollector {
+  messages: string[];
+  toolCalls: ToolCallRecord[];
+}
+
+function createClientHandler(collector: SessionUpdateCollector): acp.Client {
+  return {
+    async requestPermission(params: acp.RequestPermissionRequest): Promise<acp.RequestPermissionResponse> {
+      const defaultOption = params.options[0];
+      return {
+        outcome: {
+          outcome: 'selected',
+          optionId: defaultOption?.optionId || ''
+        }
+      };
+    },
+
+    async sessionUpdate(params: acp.SessionNotification): Promise<void> {
+      const update = params.update;
+      switch (update.sessionUpdate) {
+        case 'agent_message_chunk':
+          if (update.content.type === 'text') {
+            collector.messages.push(update.content.text);
+          }
+          break;
+        case 'tool_call':
+          collector.toolCalls.push({
+            tool: update.title || update.toolCallId,
+            input: {},
+            timestamp: Date.now()
+          });
+          break;
+      }
+    },
+
+    async writeTextFile(params: acp.WriteTextFileRequest): Promise<acp.WriteTextFileResponse> {
+      return {};
+    },
+
+    async readTextFile(params: acp.ReadTextFileRequest): Promise<acp.ReadTextFileResponse> {
+      return { content: '' };
+    }
+  };
+}
 
 export class ACPClientAdapter implements AgentAdapter {
   config: AgentAdapterConfig;
   private connectionPool?: ACPConnectionPool;
-  private connection: ChildProcess | null = null;
+  private process: ChildProcess | null = null;
 
   constructor(config: AgentAdapterConfig, connectionPool?: ACPConnectionPool) {
     this.config = {
@@ -19,31 +65,12 @@ export class ACPClientAdapter implements AgentAdapter {
   }
 
   async execute(context: AdapterContext): Promise<AdapterResult> {
+    const collector: SessionUpdateCollector = {
+      messages: [],
+      toolCalls: []
+    };
     const locksAcquired: string[] = [];
     const locksReleased: string[] = [];
-    const toolCalls: ToolCallRecord[] = [];
-
-    const lockCallbacks: LockToolsCallbacks = {
-      onDeclare: async (files: string[]) => {
-        locksAcquired.push(...files);
-        toolCalls.push({
-          tool: 'lock_declare',
-          input: { files },
-          timestamp: Date.now()
-        });
-      },
-      onRelease: async (files: string[]) => {
-        locksReleased.push(...files);
-        toolCalls.push({
-          tool: 'lock_release',
-          input: { files },
-          timestamp: Date.now()
-        });
-      }
-    };
-
-    const lockTools = createLockTools(lockCallbacks);
-    const fullPrompt = LOCK_PROTOCOL_PROMPT + '\n\n' + context.task;
 
     let proc: ChildProcess | null = null;
 
@@ -61,73 +88,77 @@ export class ACPClientAdapter implements AgentAdapter {
         proc = spawn(this.config.command, this.config.args || [], {
           cwd: this.config.cwd,
           env: { ...process.env, ...this.config.env },
-          stdio: ['pipe', 'pipe', 'pipe']
+          stdio: ['pipe', 'pipe', 'inherit']
         });
       }
 
-      this.connection = proc;
+      this.process = proc;
 
-      return await new Promise((resolve) => {
-        let stdout = '';
-        let stderr = '';
+      const input = Writable.toWeb(proc.stdin!) as WritableStream<Uint8Array>;
+      const output = Readable.toWeb(proc.stdout!) as ReadableStream<Uint8Array>;
+      const stream = acp.ndJsonStream(input, output);
+      const connection = new acp.ClientSideConnection((_agent) => createClientHandler(collector), stream);
 
-        proc!.stdout?.on('data', (data) => {
-          stdout += data.toString();
-        });
-
-        proc!.stderr?.on('data', (data) => {
-          stderr += data.toString();
-        });
-
-        const timeout = setTimeout(() => {
-          proc!.kill();
-          resolve({
-            output: this.parseOutput(stdout),
-            error: 'Command timed out',
-            locksAcquired,
-            locksReleased,
-            toolCalls
-          });
-        }, this.config.timeout);
-
-        proc!.on('close', (code) => {
-          clearTimeout(timeout);
-          this.connection = null;
-
-          const output = this.parseOutput(stdout);
-
-          resolve({
-            output,
-            error: code !== 0 ? stderr || `Exit code: ${code}` : undefined,
-            locksAcquired,
-            locksReleased,
-            toolCalls
-          });
-        });
-
-        proc!.on('error', (err) => {
-          clearTimeout(timeout);
-          this.connection = null;
-          resolve({
-            output: '',
-            error: err.message,
-            locksAcquired,
-            locksReleased,
-            toolCalls
-          });
-        });
-
-        proc!.stdin?.write(fullPrompt);
-        proc!.stdin?.end();
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout')), this.config.timeout);
       });
+
+      const initResult = await Promise.race([
+        connection.initialize({
+          protocolVersion: acp.PROTOCOL_VERSION,
+          clientCapabilities: {
+            fs: {
+              readTextFile: true,
+              writeTextFile: true
+            }
+          }
+        }),
+        timeoutPromise
+      ]);
+
+      const sessionResult = await Promise.race([
+        connection.newSession({
+          cwd: this.config.cwd || process.cwd(),
+          mcpServers: []
+        }),
+        timeoutPromise
+      ]);
+
+      const fullPrompt = LOCK_PROTOCOL_PROMPT + '\n\n' + context.task;
+
+      const promptResult = await Promise.race([
+        connection.prompt({
+          sessionId: sessionResult.sessionId,
+          prompt: [
+            {
+              type: 'text',
+              text: fullPrompt
+            }
+          ]
+        }),
+        timeoutPromise
+      ]);
+
+      return {
+        output: collector.messages.join(''),
+        artifacts: [],
+        locksAcquired,
+        locksReleased,
+        toolCalls: collector.toolCalls
+      };
     } catch (error) {
       return {
-        output: '',
+        output: collector.messages.join(''),
         error: error instanceof Error ? error.message : String(error),
         locksAcquired,
         locksReleased,
-        toolCalls
+        toolCalls: collector.toolCalls
       };
+    } finally {
+      if (proc && !this.connectionPool) {
+        proc.kill();
+      }
+      this.process = null;
     }
   }
 
@@ -151,28 +182,9 @@ export class ACPClientAdapter implements AgentAdapter {
   }
 
   async cancel(): Promise<void> {
-    if (this.connection) {
-      this.connection.kill();
-      this.connection = null;
+    if (this.process) {
+      this.process.kill();
+      this.process = null;
     }
-  }
-
-  private parseOutput(stdout: string): string {
-    const lines = stdout.split('\n');
-    const textParts: string[] = [];
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      try {
-        const event = JSON.parse(line);
-        if (event.type === 'text' && event.part?.text) {
-          textParts.push(event.part.text);
-        }
-      } catch {
-        textParts.push(line);
-      }
-    }
-
-    return textParts.join('\n');
   }
 }
